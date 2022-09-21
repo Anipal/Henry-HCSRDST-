@@ -1,0 +1,2 @@
+python3 change_v2v.py --save_dir ../../data/sample_data/OSM/small_area/change/ --geo1_dir ../../data/sample_data/OSM/small_area/2011/2011_poly.shp --geo2_dir ../../data/sample_data/OSM/small_area/2012/2012_poly.shp --change_threshold 0.2
+python3 change_v2v.py --save_dir ../../data/sample_data/OSM/small_area/change/ --geo1_dir ../../data/sample_data/OSM/small_area/2012/2012_poly.shp --geo2_dir ../../data/sample_data/OSM/small_area/2013/2013_poly.shp --change_threshold 0.2
