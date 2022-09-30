@@ -17,7 +17,7 @@ import shapely.wkt
 from functools import partial
 import pandas as pd
 import multiprocessing
-from spatial_utils import iou as calc_iou
+from utils.spatial_utils import iou as calc_iou
 import argparse
 from rtree import index
 from utils.polygons import *
