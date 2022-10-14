@@ -21,8 +21,8 @@ args = parser.parse_args()
 
 
 kms_per_radian = 6371.0088
-eps = 0.2 / kms_per_radian
-ms = 10
+eps = 0.5 / kms_per_radian
+ms = 1
 
 collection_change = list(fiona.open(args.centroid_change,'r'))
 collection_str = list(fiona.open(args.centroid_str,'r'))
@@ -41,10 +41,14 @@ db = DBSCAN(eps=eps, min_samples=ms, algorithm='ball_tree', metric='haversine').
 df_combined['cluster_labels'] = db.labels_
 labels_change = np.unique(np.array(df_combined.iloc[:len(df1_change_coords)]['cluster_labels'])) 
 df2_str['labels'] = df_combined.iloc[len(df1_change_coords):]['cluster_labels']
+df2_str["PROP_USE_D"] = df2_str["PROP_USE_D"].fillna('')
 cluster_density = {}
 for i in labels_change:
     # np.sum(np.array(df2_str((df2_str['labels'] == i) and (df2_str["PROP_USE_D"].str.contains("RESIDENTIAL")))))/np.sum(np.array(df2_str((df2_str['labels'] == i))))
-    cluster_density[i] = np.sum(np.array(df2_str((df2_str['labels'] == i) and (df2_str["PROP_USE_D"].str.contains("RESIDENTIAL")))))/np.sum(np.array(df2_str((df2_str['labels'] == i))))
+    df3 = df2_str[(df2_str['labels'] == i)]
+    df3_str = df3[df3["PROP_USE_D"].str.contains("RESIDENTIAL")]
+    cluster_density[i] = len(df3_str)/len(df3)
+print(cluster_density)
 
 
 # print(db.labels)
