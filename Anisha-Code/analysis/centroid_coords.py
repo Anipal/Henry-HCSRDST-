@@ -10,6 +10,7 @@ import pyproj
 
 def add_coords(df1):
     df = pd.DataFrame(columns = ['lat','lon','change'])
+    # df_1 = pd.DataFrame(columns = ['lat','lon','change'])
     df['change'] = df1['change']
     collection = json.loads(df1.to_json(orient='records'))
     test_gj = gpd.GeoDataFrame.from_features(collection)
