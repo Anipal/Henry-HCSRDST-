@@ -5,11 +5,13 @@ import pandas as pd
 import fiona 
 from centroid_coords import *
 import pdb
+import os
 import pandas as pd, numpy as np, matplotlib.pyplot as plt
 from sklearn.cluster import DBSCAN
 from geopy.distance import great_circle
 from shapely.geometry import MultiPoint
 from sklearn.neighbors import NearestNeighbors
+from shapely.geometry import Point
 
 parser = argparse.ArgumentParser(description="Raster to shapefile")
 parser.add_argument('--save_dir', type=str, default='/media/ssd1/data/sanborn',
@@ -42,15 +44,31 @@ df_combined['cluster_labels'] = db.labels_
 labels_change = np.unique(np.array(df_combined.iloc[:len(df1_change_coords)]['cluster_labels'])) 
 df2_str['labels'] = df_combined.iloc[len(df1_change_coords):]['cluster_labels']
 df2_str["PROP_USE_D"] = df2_str["PROP_USE_D"].fillna('')
-cluster_density = {}
-for i in labels_change:
+cluster_density_res = {}
+cluster_density_consv = {}
+cluster_density_comm = {}
+cluster_number = {}
+cluster_public = {}
+df_cluster_significance = pd.DataFrame(columns = ["Cluster", "Centroid_lon", "Centroid_lat", "Residential","Conservation","Industrial","Public","Total"])
+pdb.set_trace()
+for j,i in enumerate(labels_change):
     # np.sum(np.array(df2_str((df2_str['labels'] == i) and (df2_str["PROP_USE_D"].str.contains("RESIDENTIAL")))))/np.sum(np.array(df2_str((df2_str['labels'] == i))))
     df3 = df2_str[(df2_str['labels'] == i)]
-    df3_str = df3[df3["PROP_USE_D"].str.contains("RESIDENTIAL")]
-    cluster_density[i] = len(df3_str)/len(df3)
-print(cluster_density)
-
-
+    centroid = np.mean(np.array(df1_str_coords[(df2_str['labels'] == i)]['lon','lat']), axis = 0)
+    res = len(df3[df3["PROP_USE_D"].str.contains("RESIDENTIAL")])+len(df3[df3["PROP_USE_D"].str.contains("HOME")]) + len(df3[df3["PROP_USE_D"].str.contains("APARTMENT")])+len(df3[df3["PROP_USE_D"].str.contains("FAMILY")]) + len(len(df3[df3["PROP_USE_D"].str.contains("CONDO")]))
+    consv = len(df3[df3["PROP_USE_D"].str.contains("CONSV")]) + len(df3[df3["PROP_USE_D"].str.contains("FOREST")])
+    comm = len(df3[df3["PROP_USE_D"].str.contains("COMMERCIAL")]) + len(df3[df3["PROP_USE_D"].str.contains("INDUSTRIAL")])
+    df_cluster_significance.loc[j] = [i,centroid[0],centroid[1],res/len(df3),consv/len(df3),comm/len(df3),len(df3[df3["PROP_USE_D"].str.contains("EDU")]) + len(df3[df3["PROP_USE_D"].str.contains("HOSPITAL")]),len(df3)]
+    # cluster_density_res[i] = res/len(df3)
+    # cluster_density_consv[i] = consv/len(df3)
+    # cluster_density_comm[i] = comm/len(df3)
+    # cluster_public[i] = len(df3[df3["PROP_USE_D"].str.contains("EDU")]) + len(df3[df3["PROP_USE_D"].str.contains("HOSPITAL")])
+    # cluster_number[i] = len(df3)
+geometry = [Point(xy) for xy in zip(df_cluster_significance.Centroid_lon, df_cluster_significance.Centroid_lat)]
+df_cluster_significance = df_cluster_significance.drop(['Centroid_lon', 'Centroid_lat'], axis=1)
+gdf = gpd.GeoDataFrame(df_cluster_significance, crs="EPSG:4326", geometry=geometry)
+gdf.to_file((os.path.join(args.save_dir,'clustering_analysis_centroids.shp')))
+df2_str.to_csv(os.path.join(args.save_dir,'clustering_analysis_all_points.shp'))
 # print(db.labels)
 # neighbors = NearestNeighbors(n_neighbors=20)
 # neighbors_fit = neighbors.fit(np.radians(df_combined[['lat','lon']]))
