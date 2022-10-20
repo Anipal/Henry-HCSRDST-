@@ -1,0 +1,188 @@
+---
+title: "OASIS Data Cleaning and Viz"
+author: "Samuel Martinez"
+date: "2022-10-13"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Read in Packages
+```{r packages}
+library(tidyverse)
+library(tmap)
+library(tidycensus)
+library(sf)
+library(readxl)
+library(reticulate)
+
+#Read in python scraper functions
+use_condaenv("C:/Users/smartinez63/Anaconda3") #Change this path to wherever your python binary is stored. If you're not using conda you can switch to use_python(directory_to_binary)
+source_python('./OASIS Web Scraper.py')
+```
+
+
+
+### **Load in Data**
+
+This chunk reads in data from the *OASIS Web Scraper.py* script. That script parses HTML data from the [!Georgia OASIS](https://oasis.state.ga.us/) site.
+
+```{python}
+oasis = oasis_parse_data(raw_text = oasis_prep_htmls(extension = '\Data'))
+```
+
+```{r load scraped data}
+#Set the year and projection
+year <- 2020
+epsg_id <- 26967
+
+#Read in health data from scraped htmls
+health_scrape_raw <- py$oasis %>%
+  mutate(tract = as.character(tract))
+
+#Read in tabular exported data from OASIS
+respiratory_deaths <- read_xlsx('./Data/respiratory_deaths.xlsx', skip = 1) %>%
+  filter(!is.na(Geography) & !is.na(`\nNumber of Deaths`)) %>%
+  mutate('Respiratory Deaths' = as.numeric(`\nNumber of Deaths`), .keep = 'unused')
+
+total_deaths <- read_xlsx('./Data/total_deaths.xlsx', skip = 1) %>%
+  filter(!is.na(Geography) & !is.na(`\nNumber of Deaths`)) %>%
+  mutate('Total Deaths' = as.numeric(`\nNumber of Deaths`), .keep = 'unused')
+
+#Concatenate all data into one frame
+health_data_joined <- full_join(health_scrape_raw, respiratory_deaths, by = c('tract' = 'Geography')) %>%
+  full_join(total_deaths, by = c('tract' = 'Geography'))
+```
+
+This chunk loads in required acs-5 data to get tract population. Since we want to normalize the scraped data into rates, we need the population.
+
+**NOTE**: As of the writing of this script (10/13/2022), ACS-5 data was only available for 2020. Therefore rate estimates from 2021 health data are normalized using 2020 population data. Please update once 2021 population data is available.
+
+```{r load tract geometries and population, results = 'hide'}
+#Get census tract population for 2021 using ACS 5-year estimates
+census_api_key('cf3c51073f5e6be8f75b96e5c12662a25525326b')
+
+acs_codebook <- load_variables(year = year, dataset = 'acs5')
+
+#Get population data from acs5
+henry_acs <- get_acs(geography = 'tract',
+                     state = 'GA', 
+                     county = 'Henry County', 
+                     variables = c('Population' = 'B01003_001'), 
+                     year = year, 
+                     survey = 'acs5', 
+                     output = 'wide',
+                     geometry = TRUE) %>%
+  
+  #Drop unneeded fields
+  select(-c(NAME, 'PopulationM')) %>%
+  
+  #Project
+  st_transform(crs = epsg_id)
+
+#Get 2010 census tracts
+henry_2010_tracts <- tigris::tracts(state = 'GA', county = 'Henry', year = 2010) %>%
+  
+  #Drop unneeded fields
+  select(NAMELSAD10, GEOID10, geometry) %>%
+  
+  #Project
+  st_transform(crs = epsg_id)
+```
+
+### **Merge New Census Tracts with Old Census Tracts**
+
+```{R}
+#Plot where 2020 tracts overlap 2010 tracts
+tmap_mode('view')
+tm_shape(henry_2010_tracts) + 
+  tm_polygons(border.col = 'red', border.alpha = 0.3) + 
+  tm_shape(henry_acs) + 
+  tm_polygons(lty = 'dashed', alpha = 0.3, border_col = 'black')
+
+#Union by feature
+henry_acs_union <- henry_acs %>%
+  st_join(st_buffer(henry_2010_tracts, 200), join = st_within) %>%
+  group_by(`GEOID10`, `NAMELSAD10`) %>%
+  summarize(geometry = st_union(geometry), population = sum(PopulationE)) %>%
+  st_as_sf() %>%
+  st_transform(crs = epsg_id)
+
+#Plot the coerced 2020 tracts on top of the 2010 tracts
+tmap_mode('view')
+tm_shape(henry_2010_tracts) + tm_borders(col = 'blue', lwd = 4, alpha = 0.3) +
+  tm_shape(henry_acs_union) + tm_borders(col = 'red', lwd = 4, alpha = 0.3)
+```
+
+### **Append Health Data to Geometry**
+
+```{r}
+#Add health data to population data
+henry_health_final <- henry_acs_union %>%
+  left_join(health_data_joined, by = c('GEOID10' = 'tract')) %>%
+  
+  #Normalize variables by tract population
+  mutate(across(-any_of(c('GEOID10', 'NAMELSAD10', 'geometry', 'population')), 
+                .fns = ~ (.x/population) %>% signif(2))) %>%
+  
+  #Rename variables
+  rename('GEOID' = 'GEOID10',
+         'Tract Name' = 'NAMELSAD10',
+         'Tract Population' = 'population',
+         'ACSC Hospital Discharge Rate' = 'acsc_discharges',
+         'ACSC ER Visit Rate' = 'acsc_er_visits',
+         'ER Visit Rate (Respiratory Conditions)' = 'respiratory_er_visits',
+         'Hospital Discharge Rate (Respiratory Conditions)' = 'respiratory_hosp_discharges',
+         'Death Rate (Respiratory Conditions)' = 'Respiratory Deaths',
+         'Death Rate' = 'Total Deaths'
+  )
+
+#Generate shapefile
+st_write(henry_health_final, './Exports/henry_health.shp', append = FALSE)
+```
+
+```{r}
+#Get Henry County outline geometry
+henry_geometry <- st_union(henry_health_final)
+
+#Generate plot of variables
+tmap_mode('plot')
+tmap_options(bg.color = '#f0f0f0',
+             legend.position = c('left','bottom'), 
+             legend.bg.color = '#cee0db', 
+             legend.frame = 'black',
+             legend.frame.lwd = 1.5,
+             title.size = .75,
+             title.fontface = 'bold',
+             title.position = c('center', 'top'),
+             frame = FALSE
+)
+
+resp_er_map <- tm_shape(henry_health_final) +
+  tm_polygons(col = 'ER Visit Rate (Respiratory Conditions)', style = 'cont', legend.is.portrait = FALSE, title = '') +
+  tm_layout(title = 'ER Visit Rate (Respiratory Conditions)') +
+  tm_shape(henry_geometry) + tm_borders(lwd = 2)
+
+resp_hosp_map <- tm_shape(henry_health_final) +
+  tm_polygons(col = 'Hospital Discharge Rate (Respiratory Conditions)', style = 'cont', legend.is.portrait = FALSE, title = '') +
+  tm_layout(title = 'Hospital Discharge Rate (Respiratory Conditions)') +
+  tm_shape(henry_geometry) + tm_borders(lwd = 2)
+
+acsc_hosp_map <- tm_shape(henry_health_final) +
+  tm_polygons(col = 'ACSC Hospital Discharge Rate', style = 'cont', legend.is.portrait = FALSE, title = '') +
+  tm_layout(title = 'Hospital Discharge Rate (All ACSC Conditions)') +
+  tm_shape(henry_geometry) + tm_borders(lwd = 2)
+
+acsc_er_map <- tm_shape(henry_health_final) +
+  tm_polygons(col = 'ACSC ER Visit Rate', style = 'cont', legend.is.portrait = FALSE, title = '') +
+  tm_layout(title = 'ER Visit Rate (All ACSC Conditions)') +
+  tm_shape(henry_geometry) + tm_borders(lwd = 2)
+
+tmap_arrange(resp_er_map, acsc_er_map, ncol = 2, nrow = 1, sync = TRUE) %>% print(knit = TRUE)
+tmap_arrange(resp_hosp_map, acsc_hosp_map, ncol = 2, nrow = 1, sync = TRUE) %>% print(knit = TRUE)
+
+tmap_options_reset()
+
+```
