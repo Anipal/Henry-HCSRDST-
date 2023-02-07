@@ -9,16 +9,16 @@ import pyproj
 
 
 def add_coords(df1):
-    df = pd.DataFrame(columns = ['lat','lon','change'])
+    # df = pd.DataFrame(columns = ['lat','lon','change'])
     # df_1 = pd.DataFrame(columns = ['lat','lon','change'])
-    df['change'] = df1['change']
+    # df['change'] = df1['change']
     collection = json.loads(df1.to_json(orient='records'))
     test_gj = gpd.GeoDataFrame.from_features(collection)
     test_gj.crs = "EPSG:2240"
     test_gj = test_gj.to_crs({'init': 'epsg:4326'}) 
-    df['lon'] = test_gj['geometry'].x
-    df['lat'] = test_gj['geometry'].y
-    return df
+    df1['Lon'] = test_gj['geometry'].x
+    df1['Lat'] = test_gj['geometry'].y
+    return df1
 
 def add_fields(df1,change):
     if(change):
