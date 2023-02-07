@@ -1,0 +1,37 @@
+---
+title: "Henry County Pop Distribution Comparison"
+author: "Samuel Martinez"
+date: "2023-01-19"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(httr)
+library(ggdark)
+library(sf)
+library(tmap)
+library(tigris)
+library(tidycensus)
+source('Functions.r')
+```
+
+#Load in Henry County SF Files
+```{r}
+regions <- st_read('../../../Henry County GIS Data/Georgia Smart Communities/Regions_Smoothed.shp') %>%
+  mutate('Region Name' = paste0('Region ', RegionID))
+
+hc_border <- counties(state = 'GA', progress_bar = FALSE) %>%
+  filter(NAME == 'Henry') %>%
+  select(geometry)
+
+roads <- st_read('../../../Henry County GIS Data/Georgia Smart Communities/Roads.shp')
+
+vars <- load_variables(year = 2021, dataset = 'acs5')
+acs_zip <- get_acs(geography = 'zcta', variables = c('B01003_001', 'B03002_001'), key = 'cf3c51073f5e6be8f75b96e5c12662a25525326b', geometry = TRUE, output = 'wide')
+acs_place <- get_acs(geography = 'place', state = 'GA', variables = c('Total_Population' = 'B01003_001','Total Latino' = 'B03001_003'), key = 'cf3c51073f5e6be8f75b96e5c12662a25525326b', geometry = TRUE, output = 'wide')
+```

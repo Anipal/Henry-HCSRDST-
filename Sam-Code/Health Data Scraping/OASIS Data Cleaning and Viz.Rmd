@@ -184,5 +184,4 @@ tmap_arrange(resp_er_map, acsc_er_map, ncol = 2, nrow = 1, sync = TRUE) %>% prin
 tmap_arrange(resp_hosp_map, acsc_hosp_map, ncol = 2, nrow = 1, sync = TRUE) %>% print(knit = TRUE)
 
 tmap_options_reset()
-
 ```

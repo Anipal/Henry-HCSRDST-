@@ -1,0 +1,647 @@
+---
+title: "Survey Data Viz"
+author: "Samuel Martinez"
+date: "2022-12-13"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(httr)
+library(ggdark)
+library(sf)
+library(tmap)
+library(tigris)
+source('Functions.r')
+```
+Read in necessary Henry County GIS Data
+```{r}
+cities <- st_read('../../../Henry County GIS Data/Georgia Smart Communities/City_Points.shp')
+regions <- st_read('../../../Henry County GIS Data/Georgia Smart Communities/Regions_Smoothed.shp') %>%
+  mutate('Region Name' = paste0('Region ', RegionID))
+hc_border <- counties(state = 'GA', progress_bar = FALSE) %>%
+  filter(NAME == 'Henry') %>%
+  select(geometry)
+
+roads <- st_read('../../../Henry County GIS Data/Georgia Smart Communities/Roads.shp')
+```
+
+```{r}
+#Start response export
+survey_id <- 'SV_4UULU29RAidh96m'
+qualtrics_key <- 'hRLGDdJ4Ko0UqruJbW5xhsQYWBamJtpc0h4Vlj8E'
+
+#Pull response function
+get_survey_responses <- function(surveyid, api_key){
+  url <- paste0("https://iad1.qualtrics.com/API/v3/surveys/", surveyid, "/export-responses")
+  
+  payload <- "{\n  \"format\": \"csv\",\n  \"useLabels\": true,\n  \"breakoutSets\": false\n}"
+  
+  encode <- 'json'
+  
+  req <- POST(url,
+              body = payload,
+              add_headers(`X-API-TOKEN` = api_key),
+              content_type("application/json"), 
+              encode = encode
+  )
+  
+  progress_id <- content(req)$result$progressId
+  
+  Sys.sleep(5)
+  
+  url <- paste0("https://iad1.qualtrics.com/API/v3/surveys/", surveyid, "/export-responses/", progress_id)
+  
+  req <- GET(url,
+             body = payload,
+             add_headers(`X-API-TOKEN` = api_key),
+             content_type("application/json"), 
+             encode = encode
+  )
+  
+  file_id <- content(req)$result$fileId
+  
+  url <- paste0("https://iad1.qualtrics.com/API/v3/surveys/", surveyid, "/export-responses/", file_id, "/file")
+  
+  req <- GET(url,
+             body = payload,
+             add_headers(`X-API-TOKEN` = api_key),
+             content_type("application/octet_stream")
+  )
+  
+  content <- content(req)
+  tf <- tempfile()
+  writeBin(content, tf)
+  a <- unzip(tf)
+  ex <- read_csv(a)
+  return(ex)
+}
+
+survey_raw <- get_survey_responses(survey_id, qualtrics_key)
+
+#Create crosswalk between question names and IDs
+question_raw <- as.vector(survey_raw[2,]) %>% 
+  unlist(use.names = FALSE)
+question_names <- as.vector(survey_raw[1,]) %>% 
+  unlist(use.names = FALSE)
+question_numbers <- names(survey_raw)
+
+question_key <- data.frame('Question.ID' = question_numbers, 'Question.Name' = question_names) %>%
+  as.data.frame() %>%
+  drop_na()
+```
+
+Clean survey data (pivot to long)
+```{r}
+survey_longer <- survey_raw %>%
+  
+  .[3:nrow(.),] %>%
+  
+  #Pivot by question ID
+  pivot_longer(cols = starts_with('Q'), names_to = 'Question.ID') %>%
+  
+  #Parse question and choice IDs
+  
+  left_join(question_key, by = 'Question.ID') %>%
+  
+  #Get question number
+  
+  select(c('ResponseId', 'Question.ID', 'Question.Name', 'value')) %>%
+  rename('Respondent.ID' = 'ResponseId', 'Question.Response' = 'value')
+
+survey_clean <- survey_longer %>%
+  select(c(Respondent.ID, Question.ID, Question.Response)) %>%
+  pivot_wider(id_cols = Respondent.ID, names_from = Question.ID, values_from = Question.Response)
+
+#Get the number of responses per question
+survey_numresp <- survey_longer %>%
+  filter(!is.na(Question.Response)) %>%
+  count(Question.ID, name = 'Total Responses')
+```
+
+##### Visualize respondent zip codes
+```{r}
+#Get zipcodes
+zctas <- zctas(progress_bar = FALSE)
+```
+
+```{r}
+#Set epsg ID to georgia state plane
+epsg_id <- 26967
+
+#Merge zipcodes with responses
+survey_zips <- survey_longer %>%
+  filter(Question.ID == 'Q6') %>%
+  rename('Zip Code' = 'Question.Response') %>%
+  count(`Zip Code`, name = 'Num Responses') %>%
+  left_join(zctas, by = c('Zip Code' = 'ZCTA5CE20')) %>%
+  select(`Zip Code`,`Num Responses`, geometry) %>%
+  st_as_sf() %>%
+  st_transform(crs = epsg_id)
+
+#Map zip code data
+tmap_mode('plot')
+zip_map <- tm_shape(survey_zips %>% filter((`Zip Code` %in% c('Prefer not to answer', NA)) == FALSE)) +
+  tm_polygons(col = 'Num Responses') +
+  tm_text(text = 'Zip Code', size = 0.9, alpha = 0.8, fontface = 'bold', col = 'black', xmod = 1, ymod = 0.9) +
+  tm_shape(cities) +
+  tm_dots(size = 0.2) +
+  tm_text(text = 'Name', size = .75, ymod = -.5)
+tmap_save(zip_map, 'zip_map.jpg')
+```
+
+##### Region Data Viz
+
+Subset region questions
+```{r}
+region_q <- survey_longer %>%
+  
+  filter((str_detect(`Question.ID`, '^Q9') | str_detect(`Question.ID`, '^Q13')) == TRUE) %>%
+  filter(!is.na(Question.Response)) %>%
+  
+  #Where multiple regions are selected, create a unique row for each region
+  mutate('Area Selection' = str_split(Question.Response,',')) %>%
+  unnest('Area Selection') %>%
+  
+  #Parse the type of development from each question
+  mutate('Type of Development' = str_match(Question.Name, '- (.+)$')[,2]) %>%
+  
+  select(-Question.Response) %>%
+  
+  #Add geometry
+  left_join(regions %>% select(c(geometry, `Region Name`)), by = c('Area Selection' = 'Region Name'))
+
+survey_region_support <- region_q %>%
+  st_drop_geometry() %>%
+  
+  #Remove non map-based questions
+  filter(!str_detect(`Question.ID`, '^Q\\d+\\.')) %>%
+  count(`Question.ID`, `Type of Development`, `Area Selection`, name = 'Num Responses') %>%
+  
+  #Add total number of responses
+  left_join(survey_numresp, by = 'Question.ID') %>%
+  
+  mutate('Proportion in Favor' = `Num Responses` / `Total Responses`) %>%
+  mutate('Region Number' = str_extract(`Area Selection`, '\\d+')) %>%
+  
+  #Add geometry
+  left_join(regions %>% select(c(geometry, `Region Name`)), by = c('Area Selection' = 'Region Name')) %>%
+  
+  st_as_sf()
+```
+
+```{r}
+#Regions
+region_map <- tm_shape(regions, bbox = st_bbox(hc_border)) +
+  tm_fill(col = 'Region Name', legend.show = FALSE) +
+  tm_text(text = 'RegionID') +
+  tm_shape(hc_border) +
+  tm_borders(lwd = 2)
+tmap_save(region_map, './Exports/region_map.jpg')
+
+#Improve traffic management and reduce congestion
+itmarc <- tm_shape(
+  survey_region_support %>% 
+    filter(`Type of Development` == 'Improve traffic management and reduce congestion') %>%
+    filter(`Area Selection` %in% c('Another Region outside Henry County', 'I do not support this type of development anywhere', 'Prefer not to answer / don\'t know') == FALSE),
+  bbox = st_bbox(hc_border)
+         ) +
+  
+  tm_polygons(col = 'Proportion in Favor') +
+  
+  tm_shape(regions) +
+  tm_text(text = 'RegionID') +
+  
+  tm_shape(roads %>% filter(Layer %in% c('Interstates', 'State Highways'))) +
+  tm_lines(col = '#33362c', lwd = 2) +
+  
+  tm_shape(cities) +
+  tm_dots(size = 0.3, col = '#4b50eb') +
+
+  tm_shape(hc_border) +
+  tm_borders(lwd = 2) +
+  
+  tm_layout(main.title = 'Improve traffic management and reduce congestion', main.title.size = 1, main.title.fontface = 'bold')
+tmap_save(itmarc, './Exports/improve_traffic.jpg')
+
+#Expand freight transportation network
+eftn <- tm_shape(
+  survey_region_support %>% 
+    filter(`Type of Development` == 'Expand freight transportation network') %>%
+    filter(`Area Selection` %in% c('Another Region outside Henry County', 'I do not support this type of development anywhere', 'Prefer not to answer / don\'t know') == FALSE),
+  bbox = st_bbox(hc_border)
+         ) +
+  
+  tm_polygons(col = 'Proportion in Favor') +
+  
+  tm_shape(regions) +
+  tm_text(text = 'RegionID') +
+  
+  tm_shape(roads %>% filter(Layer %in% c('Interstates', 'State Highways'))) +
+  tm_lines(col = '#33362c', lwd = 2) +
+  
+  tm_shape(cities) +
+  tm_dots(size = 0.3, col = '#4b50eb') +
+
+  tm_shape(hc_border) +
+  tm_borders(lwd = 2) +
+  
+  tm_layout(main.title = 'Expand freight transportation network', main.title.size = 1, main.title.fontface = 'bold')
+tmap_save(eftn, './Exports/expand_freight.jpg')
+
+#Increase access to health care facilities (e.g., clinics, pharmacies, healthcare parks)
+iathcf <- tm_shape(
+  survey_region_support %>% 
+    filter(`Type of Development` == 'Increase access to health care facilities (e.g., clinics, pharmacies, healthcare parks)') %>%
+    filter(`Area Selection` %in% c('Another Region outside Henry County', 'I do not support this type of development anywhere', 'Prefer not to answer / don\'t know') == FALSE),
+  bbox = st_bbox(hc_border)
+         ) +
+  
+  tm_polygons(col = 'Proportion in Favor') +
+  
+  tm_shape(regions) +
+  tm_text(text = 'RegionID') +
+  
+  tm_shape(roads %>% filter(Layer %in% c('Interstates', 'State Highways'))) +
+  tm_lines(col = '#33362c', lwd = 2) +
+  
+  tm_shape(cities) +
+  tm_dots(size = 0.3, col = '#4b50eb') +
+
+  tm_shape(hc_border) +
+  tm_borders(lwd = 2) +
+  
+  tm_layout(main.title = 'Increase access to health care facilities', main.title.size = 1, main.title.fontface = 'bold')
+tmap_save(iathcf, './Exports/health_care_facilities.jpg')
+
+#Increase commercial development (e.g., retail, office parks, small businesses)
+icd <- tm_shape(
+  survey_region_support %>% 
+    filter(`Type of Development` == 'Increase commercial development (e.g., retail, office parks, small businesses)') %>%
+    filter(`Area Selection` %in% c('Another Region outside Henry County', 'I do not support this type of development anywhere', 'Prefer not to answer / don\'t know') == FALSE),
+  bbox = st_bbox(hc_border)
+         ) +
+  
+  tm_polygons(col = 'Proportion in Favor') +
+  
+  tm_shape(regions) +
+  tm_text(text = 'RegionID') +
+  
+  tm_shape(roads %>% filter(Layer %in% c('Interstates', 'State Highways'))) +
+  tm_lines(col = '#33362c', lwd = 2) +
+  
+  tm_shape(cities) +
+  tm_dots(size = 0.3, col = '#4b50eb') +
+
+  tm_shape(hc_border) +
+  tm_borders(lwd = 2) +
+  
+  tm_layout(main.title = 'Increase commercial development', main.title.size = 1, main.title.fontface = 'bold')
+tmap_save(icd, './Exports/commercial_dev.jpg')
+
+#Increase distribution centers
+idc <- tm_shape(
+  survey_region_support %>% 
+    filter(`Type of Development` == 'Increase distribution centers') %>%
+    filter(`Area Selection` %in% c('Another Region outside Henry County', 'I do not support this type of development anywhere', 'Prefer not to answer / don\'t know') == FALSE),
+  bbox = st_bbox(hc_border)
+         ) +
+  
+  tm_polygons(col = 'Proportion in Favor') +
+  
+  tm_shape(regions) +
+  tm_text(text = 'RegionID') +
+  
+  tm_shape(roads %>% filter(Layer %in% c('Interstates', 'State Highways'))) +
+  tm_lines(col = '#33362c', lwd = 2) +
+  
+  tm_shape(cities) +
+  tm_dots(size = 0.3, col = '#4b50eb') +
+
+  tm_shape(hc_border) +
+  tm_borders(lwd = 2) +
+  
+  tm_layout(main.title = 'Increase distribution centers', main.title.size = 1, main.title.fontface = 'bold')
+tmap_save(idc, './Exports/distribution_centers.jpg')
+
+#Increase freight routes
+ifr <- tm_shape(
+  survey_region_support %>% 
+    filter(`Type of Development` == 'Increase freight routes') %>%
+    filter(`Area Selection` %in% c('Another Region outside Henry County', 'I do not support this type of development anywhere', 'Prefer not to answer / don\'t know') == FALSE),
+  bbox = st_bbox(hc_border)
+         ) +
+  
+  tm_polygons(col = 'Proportion in Favor') +
+  
+  tm_shape(regions) +
+  tm_text(text = 'RegionID') +
+  
+  tm_shape(roads %>% filter(Layer %in% c('Interstates', 'State Highways'))) +
+  tm_lines(col = '#33362c', lwd = 2) +
+  
+  tm_shape(cities) +
+  tm_dots(size = 0.3, col = '#4b50eb') +
+
+  tm_shape(hc_border) +
+  tm_borders(lwd = 2) +
+  
+  tm_layout(main.title = 'Increase freight routes', main.title.size = 1, main.title.fontface = 'bold')
+tmap_save(ifr, './Exports/increase_freight_routes.jpg')
+
+#Increase highway access (on ramps and off ramps)
+iha <- tm_shape(
+  survey_region_support %>% 
+    filter(`Type of Development` == 'Increase highway access (on ramps and off ramps)') %>%
+    filter(`Area Selection` %in% c('Another Region outside Henry County', 'I do not support this type of development anywhere', 'Prefer not to answer / don\'t know') == FALSE),
+  bbox = st_bbox(hc_border)
+         ) +
+  
+  tm_polygons(col = 'Proportion in Favor') +
+  
+  tm_shape(regions) +
+  tm_text(text = 'RegionID') +
+  
+  tm_shape(roads %>% filter(Layer %in% c('Interstates', 'State Highways'))) +
+  tm_lines(col = '#33362c', lwd = 2) +
+  
+  tm_shape(cities) +
+  tm_dots(size = 0.3, col = '#4b50eb') +
+
+  tm_shape(hc_border) +
+  tm_borders(lwd = 2) +
+  
+  tm_layout(main.title = 'Increase highway access', main.title.size = 1, main.title.fontface = 'bold')
+tmap_save(iha, './Exports/highway_access.jpg')
+
+#Increase indoor recreational opportunities (e.g., restaurants, movie theaters)
+iiro <- tm_shape(
+  survey_region_support %>% 
+    filter(`Type of Development` == 'Increase indoor recreational opportunities (e.g., restaurants, movie theaters)') %>%
+    filter(`Area Selection` %in% c('Another Region outside Henry County', 'I do not support this type of development anywhere', 'Prefer not to answer / don\'t know') == FALSE),
+  bbox = st_bbox(hc_border)
+         ) +
+  
+  tm_polygons(col = 'Proportion in Favor') +
+  
+  tm_shape(regions) +
+  tm_text(text = 'RegionID') +
+  
+  tm_shape(roads %>% filter(Layer %in% c('Interstates', 'State Highways'))) +
+  tm_lines(col = '#33362c', lwd = 2) +
+  
+  tm_shape(cities) +
+  tm_dots(size = 0.3, col = '#4b50eb') +
+
+  tm_shape(hc_border) +
+  tm_borders(lwd = 2) +
+  
+  tm_layout(main.title = 'Increase indoor recreational opportunities', main.title.size = 1, main.title.fontface = 'bold')
+tmap_save(iiro, './Exports/indoor_rec.jpg')
+
+#Increase industrial development (e.g., manufacturing facilities)
+iid <- tm_shape(
+  survey_region_support %>% 
+    filter(`Type of Development` == 'Increase industrial development (e.g., manufacturing facilities)') %>%
+    filter(`Area Selection` %in% c('Another Region outside Henry County', 'I do not support this type of development anywhere', 'Prefer not to answer / don\'t know') == FALSE),
+  bbox = st_bbox(hc_border)
+         ) +
+  
+  tm_polygons(col = 'Proportion in Favor') +
+  
+  tm_shape(regions) +
+  tm_text(text = 'RegionID') +
+  
+  tm_shape(roads %>% filter(Layer %in% c('Interstates', 'State Highways'))) +
+  tm_lines(col = '#33362c', lwd = 2) +
+  
+  tm_shape(cities) +
+  tm_dots(size = 0.3, col = '#4b50eb') +
+
+  tm_shape(hc_border) +
+  tm_borders(lwd = 2) +
+  
+  tm_layout(main.title = 'Increase industrial development', main.title.size = 1, main.title.fontface = 'bold')
+tmap_save(iid, './Exports/industrial_dev.jpg')
+
+#Increase manufacturing centers
+imc <- tm_shape(
+  survey_region_support %>% 
+    filter(`Type of Development` == 'Increase manufacturing centers') %>%
+    filter(`Area Selection` %in% c('Another Region outside Henry County', 'I do not support this type of development anywhere', 'Prefer not to answer / don\'t know') == FALSE),
+  bbox = st_bbox(hc_border)
+         ) +
+  
+  tm_polygons(col = 'Proportion in Favor') +
+  
+  tm_shape(regions) +
+  tm_text(text = 'RegionID') +
+  
+  tm_shape(roads %>% filter(Layer %in% c('Interstates', 'State Highways'))) +
+  tm_lines(col = '#33362c', lwd = 2) +
+  
+  tm_shape(cities) +
+  tm_dots(size = 0.3, col = '#4b50eb') +
+
+  tm_shape(hc_border) +
+  tm_borders(lwd = 2) +
+  
+  tm_layout(main.title = 'Increase manufacturing centers', main.title.size = 1, main.title.fontface = 'bold')
+tmap_save(imc, './Exports/manufacturing_centers.jpg')
+
+#Increase the amount of, or access to, affordable housing
+itaoatah <- tm_shape(
+  survey_region_support %>% 
+    filter(`Type of Development` == 'Increase the amount of, or access to, affordable housing') %>%
+    filter(`Area Selection` %in% c('Another Region outside Henry County', 'I do not support this type of development anywhere', 'Prefer not to answer / don\'t know') == FALSE),
+  bbox = st_bbox(hc_border)
+         ) +
+  
+  tm_polygons(col = 'Proportion in Favor') +
+  
+  tm_shape(regions) +
+  tm_text(text = 'RegionID') +
+  
+  tm_shape(roads %>% filter(Layer %in% c('Interstates', 'State Highways'))) +
+  tm_lines(col = '#33362c', lwd = 2) +
+  
+  tm_shape(cities) +
+  tm_dots(size = 0.3, col = '#4b50eb') +
+
+  tm_shape(hc_border) +
+  tm_borders(lwd = 2) +
+  
+  tm_layout(main.title = 'Increase the amount of affordable housing', main.title.size = 1, main.title.fontface = 'bold')
+tmap_save(itaoatah, './Exports/affordable_housing.jpg')
+
+#Increase truck parking lots
+itpl <- tm_shape(
+  survey_region_support %>% 
+    filter(`Type of Development` == 'Increase truck parking lots') %>%
+    filter(`Area Selection` %in% c('Another Region outside Henry County', 'I do not support this type of development anywhere', 'Prefer not to answer / don\'t know') == FALSE),
+  bbox = st_bbox(hc_border)
+         ) +
+  
+  tm_polygons(col = 'Proportion in Favor') +
+  
+  tm_shape(regions) +
+  tm_text(text = 'RegionID') +
+  
+  tm_shape(roads %>% filter(Layer %in% c('Interstates', 'State Highways'))) +
+  tm_lines(col = '#33362c', lwd = 2) +
+  
+  tm_shape(cities) +
+  tm_dots(size = 0.3, col = '#4b50eb') +
+
+  tm_shape(hc_border) +
+  tm_borders(lwd = 2) +
+  
+  tm_layout(main.title = 'Increase truck parking lots', main.title.size = 1, main.title.fontface = 'bold')
+tmap_save(itpl, './Exports/truck_parking.jpg')
+
+#Increase warehouse development
+iwd <- tm_shape(
+  survey_region_support %>% 
+    filter(`Type of Development` == 'Increase warehouse development') %>%
+    filter(`Area Selection` %in% c('Another Region outside Henry County', 'I do not support this type of development anywhere', 'Prefer not to answer / don\'t know') == FALSE),
+  bbox = st_bbox(hc_border)
+         ) +
+  
+  tm_polygons(col = 'Proportion in Favor') +
+  
+  tm_shape(regions) +
+  tm_text(text = 'RegionID') +
+  
+  tm_shape(roads %>% filter(Layer %in% c('Interstates', 'State Highways'))) +
+  tm_lines(col = '#33362c', lwd = 2) +
+  
+  tm_shape(cities) +
+  tm_dots(size = 0.3, col = '#4b50eb') +
+
+  tm_shape(hc_border) +
+  tm_borders(lwd = 2) +
+  
+  tm_layout(main.title = 'Increase warehouse development', main.title.size = 1, main.title.fontface = 'bold')
+tmap_save(iwd, './Exports/warehouse_dev.jpg')
+
+#Merge existing parking infrastructure to accommodate freight parking needs (allow trucks to park in unoccupied Walmart parking lot spaces)
+mepitafpn <- tm_shape(
+  survey_region_support %>% 
+    filter(`Type of Development` == 'Merge existing parking infrastructure to accommodate freight parking needs (allow trucks to park in unoccupied Walmart parking lot spaces)') %>%
+    filter(`Area Selection` %in% c('Another Region outside Henry County', 'I do not support this type of development anywhere', 'Prefer not to answer / don\'t know') == FALSE),
+  bbox = st_bbox(hc_border)
+         ) +
+  
+  tm_polygons(col = 'Proportion in Favor') +
+  
+  tm_shape(regions) +
+  tm_text(text = 'RegionID') +
+  
+  tm_shape(roads %>% filter(Layer %in% c('Interstates', 'State Highways'))) +
+  tm_lines(col = '#33362c', lwd = 2) +
+  
+  tm_shape(cities) +
+  tm_dots(size = 0.3, col = '#4b50eb') +
+
+  tm_shape(hc_border) +
+  tm_borders(lwd = 2) +
+  
+  tm_layout(main.title = 'Merge existing parking infrastructure to accommodate freight parking', main.title.size = .75, main.title.fontface = 'bold')
+tmap_save(mepitafpn, './Exports/merge_parking.jpg')
+
+#Repurpose vacant industrial properties for freight infrastructure
+rvipffi <- tm_shape(
+  survey_region_support %>% 
+    filter(`Type of Development` == 'Repurpose vacant industrial properties for freight infrastructure') %>%
+    filter(`Area Selection` %in% c('Another Region outside Henry County', 'I do not support this type of development anywhere', 'Prefer not to answer / don\'t know') == FALSE),
+  bbox = st_bbox(hc_border)
+         ) +
+  
+  tm_polygons(col = 'Proportion in Favor') +
+  
+  tm_shape(regions) +
+  tm_text(text = 'RegionID') +
+  
+  tm_shape(roads %>% filter(Layer %in% c('Interstates', 'State Highways'))) +
+  tm_lines(col = '#33362c', lwd = 2) +
+  
+  tm_shape(cities) +
+  tm_dots(size = 0.3, col = '#4b50eb') +
+
+  tm_shape(hc_border) +
+  tm_borders(lwd = 2) +
+  
+  tm_layout(main.title = 'Repurpose vacant industrial properties for freight infrastructure', main.title.size = .8, main.title.fontface = 'bold')
+tmap_save(rvipffi, './Exports/vacant_properties.jpg')
+```
+
+Build custom maps with wrapper functions
+```{r}
+#Start response export
+survey_id <- 'SV_4UULU29RAidh96m'
+qualtrics_key <- 'hRLGDdJ4Ko0UqruJbW5xhsQYWBamJtpc0h4Vlj8E'
+
+survey <- get_survey_responses(survey_id, qualtrics_key) %>%
+  clean_survey()
+
+tod <- survey %>%
+  regionalize_survey() %>%
+  count(`Type of Development`) %>%
+  .$`Type of Development`
+
+for(dev in tod){
+ map <- regionalize_survey(survey, type_of_development = dev) %>%
+   survey_to_sf() %>%
+   build_map(map_title = paste0('All Residents: ', dev))
+ 
+ print(map)
+}
+```
+
+```{r}
+for(dev in tod){
+ map <- regionalize_survey(survey, type_of_development = dev) %>%
+   filter(`Community of Residence` == 'McDonough') %>%
+   survey_to_sf() %>%
+   build_map(map_title = paste0('McDonough Residents: ', dev))
+ 
+ print(map)
+}
+```
+
+```{r}
+for(dev in tod){
+ map <- regionalize_survey(survey, type_of_development = dev) %>%
+   filter(`Community of Residence` == 'Stockbridge') %>%
+   survey_to_sf() %>%
+   build_map(map_title = paste0('Stockbridge Residents: ', dev))
+ 
+ print(map)
+}
+```
+
+```{r}
+for(dev in tod){
+ map <- regionalize_survey(survey, type_of_development = dev) %>%
+   filter(`Community of Residence` == 'Hampton') %>%
+   survey_to_sf() %>%
+   build_map(map_title = paste0('Hampton Residents: ', dev))
+ 
+ print(map)
+}
+```
+
+```{r}
+for(dev in tod){
+ map <- regionalize_survey(survey, type_of_development = dev) %>%
+   filter(`Community of Residence` == 'Locust Grove') %>%
+   survey_to_sf() %>%
+   build_map(map_title = paste0('LG Residents: ', dev))
+ 
+ print(map)
+}
+```
