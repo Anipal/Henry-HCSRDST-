@@ -13,8 +13,9 @@ import numpy as np
 
 
 # pdb.set_trace()
-def distance_calc(df1, df2, factor):
+def distance_calc(df1, df2):
     pdb.set_trace()
+    
     dist = []
     point = MultiPoint(df2.geometry)
     geod = pyproj.Geod(ellps = 'WGS84')
@@ -25,9 +26,10 @@ def distance_calc(df1, df2, factor):
         # d = nearest[1].distance(poly)
         dist.append(d/1000)
     pdb.set_trace()
-    dist_ratio = list((factor*np.array(dist))/max(dist))
+    dist_ratio = list((np.array(dist))/max(dist))
     df1['nearest-distance'] = dist
     df1['nearest-distance-ratio'] = dist_ratio
+    df1 = df1.to_crs(3857)
     return df1
 
 def main():
@@ -49,8 +51,7 @@ def main():
     # geo2 =  transform(project,gpd.read_file(args.geo2_dir))
     geo1 = gpd.read_file(args.geo1_dir)
     geo2 = gpd.read_file(args.geo2_dir)
-    factor = 10
-    geojson_df = distance_calc(geo1,geo2, factor)
+    geojson_df = distance_calc(geo1,geo2)
 
 
     name_dir = args.geo2_dir.split('/')[-1].split('.')[0]

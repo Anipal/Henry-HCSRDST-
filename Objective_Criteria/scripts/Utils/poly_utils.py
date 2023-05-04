@@ -131,3 +131,46 @@ def graphs(poly_list):
             idx.insert(i, bounds, obj = p)
 
     return idx
+
+def polygon_list_class(geo_dir):
+    collection = list(fiona.open(geo_dir,'r'))
+    df1 = pd.DataFrame(collection)
+    collection = json.loads(df1.to_json(orient='records'))
+    del df1
+    #Convert to geodataframe
+    # pdb.set_trace()
+    test_gj = gpd.GeoDataFrame.from_features(collection)
+    del collection
+    poly_list = []
+    class_list = []
+    for i in tqdm(range(len(test_gj['geometry']))):
+        poly = test_gj['geometry'][i]
+        if poly.geom_type == 'MultiPolygon':
+            poly_single = list(poly)
+            for poly2 in poly_single:
+                bo = poly2.bounds
+                if(poly2.is_valid == False):
+                    poly2 = poly2.simplify(tolerance=1e-8, preserve_topology=True)
+                    if(poly2.is_valid == False and poly2.buffer(0).is_empty == False):
+                        poly2 = poly2.buffer(0)
+                if(poly2.is_valid):
+                    poly_list.append(poly2)
+                    class_list.append(test_gj['landuse'][i])
+                else:
+                    failure.append(poly2.exterior.coords.xy)
+        else:
+           # pdb.set_trace()
+           # print(test_gj['geometry'])
+            if(poly.is_valid == False):
+                # failure.append(poly)
+                poly = poly.simplify(tolerance=1e-8, preserve_topology=True)
+                if(poly.is_valid == False and poly.buffer(0).is_empty == False):
+                    poly = poly.buffer(0)
+            if(poly.is_valid):
+                poly_list.append(poly)
+                class_list.append(test_gj['landuse'][i])
+            else:
+                failure.append(poly)
+    del test_gj
+    # #else:
+    return poly_list,failure,class_list
