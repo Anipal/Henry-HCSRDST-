@@ -14,7 +14,7 @@ import numpy as np
 
 # pdb.set_trace()
 def distance_calc(df1, df2):
-    pdb.set_trace()
+    # pdb.set_trace()
     
     dist = []
     point = MultiPoint(df2.geometry)
@@ -25,7 +25,7 @@ def distance_calc(df1, df2):
         _,_,d = geod.inv(nearest[1].x, nearest[1].y, poly.x, poly.y)  
         # d = nearest[1].distance(poly)
         dist.append(d/1000)
-    pdb.set_trace()
+    # pdb.set_trace()
     dist_ratio = list((np.array(dist))/max(dist))
     df1['nearest-distance'] = dist
     df1['nearest-distance-ratio'] = dist_ratio

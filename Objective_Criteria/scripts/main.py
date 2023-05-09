@@ -7,6 +7,7 @@ import pyproj
 from tqdm import tqdm 
 import numpy as np
 import sys
+import time
 from shapely.geometry import Point, LineString
 from shapely.ops import nearest_points
 import geopandas as gpd
@@ -40,16 +41,18 @@ parser.add_argument('--parks', type=str, default='../',help='put the path to par
 parser.add_argument('--buffer_LOS', type=int, default=500,help='distance in m within which a parcel should have a road')
 parser.add_argument('--buffer_air', type=int, default=5000,help='distance in m indicating the distance from a road air particles travel')
 parser.add_argument('--buffer_noise', type=int, default=5000,help='distance in m indicating the distance from a road noise pollution is significant')
-parser.add_argument('--buffer_density', type=int, default=5000,help='distance in m indicating the distance from a parcel for calculating the density of residential buildings')
+parser.add_argument('--buffer_density', type=int, default=1000,help='distance in m indicating the distance from a parcel for calculating the density of residential buildings')
 parser.add_argument('--regenerate',action='store_true',help='enable if regeneration of the landuse clusters is required')
 args = parser.parse_args()
 
+start = time.time()
 geo1 = gpd.read_file(args.parcel).to_crs(3857)
 geo2 = gpd.read_file(args.road).to_crs(3857)
 geo3 = gpd.read_file(args.flu).to_crs(3857)
 geo4 = gpd.read_file(args.zoning).to_crs(3857)
 geo5 = gpd.read_file(args.buildings).to_crs(4326)
 if(args.regenerate):
+    # pdb.set_trace()
     area_calc(args.parcel_before, args.parcel_after, args.buildings, args.res_centroids)
 
 geo6 = gpd.read_file(args.res_centroids).to_crs(4326)
@@ -60,12 +63,17 @@ idx1 = graphs( geo2['geometry'])
 idx2 = graphs( geo3['geometry'])  
 idx3 = graphs( geo4['geometry'])
 idx4 = graphs(geo5['geometry'])
+
+
+#Residential Proximity
+geo1 = res_geo(geo1,geo6)
+
 #Proximity to Major freight corridoor
 geo2_ = geo2[geo2.NAME.str.contains('^I-75(?:(?=.*ENTRANCE)|(?=.*EXIT)).*', regex= True, na=False)]
 geo2_ = geo2_.reset_index(drop=True)
 geo1 = distance_corridoor(geo1,geo2_)
 
-# #LOS 
+#LOS 
 geo1 = LOS_geo(geo1, geo2, idx1, args.buffer_LOS)
 
 #Pollution 
@@ -80,18 +88,20 @@ geo1 = landuse_geo(geo1, geo3, geo4, idx2,idx3)
 #Construction Area
 geo1 = area_geo(geo1,idx4)
 
-#Residential Proximity
-geo1 = res_geo(geo1,geo6)
-
 #Public Proximity 
+
 geo1 = public_geo(geo1, geo7, geo8)
 
 #Environmental Proximity 
 geo1 = env_geo(geo1, geo9)
 
-#Density
-#Include only residential buildings
-geo1 = struct_density(geo1, idx4, args.buffer_density)
+# Density
+# Include only residential buildings
+geo5_ = geo5[geo5.PROP_USE_D.str.contains('(RES COM)|(HOME)|(APARTMENT)|(FAMILY)|(CONDO)|(RESIDENTIAL)', na=False)]
+geo5_ = geo5_.reset_index(drop=True)
+geo5_ = geo5_.to_crs(3857)
+idx5_ = graphs(geo5_['geometry'])
+geo1 = struct_density(geo1, idx5_, args.buffer_density)
 
 name_dir = 'criteria'
 file_name = 'criteria.shp'
@@ -101,4 +111,8 @@ if not(os.path.exists(os.path.join(args.save_dir,name_dir))):
 print(os.path.join(args.save_dir,name_dir,(file_name)))
 geo1.to_file(os.path.join(args.save_dir,name_dir,(file_name)))
 
+
+print('It took', time.time()-start, 'seconds.')
+total_time = (time.time()-start)/3600
+print('It took', total_time, 'hours.')
 

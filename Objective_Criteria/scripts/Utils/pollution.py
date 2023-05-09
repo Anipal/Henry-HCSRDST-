@@ -12,7 +12,7 @@ def flood_plain(geo):
     flood = np.array(flood)
     flood[np.where(flood == 'YES') or np.where(flood == 'yes')] = 0
     flood[np.where(flood == 'NO')] = 1
-    geo['flood'] = flood
+    geo['flood'] = list(flood)
     return geo
 
 def noise(poly, road, buffer):

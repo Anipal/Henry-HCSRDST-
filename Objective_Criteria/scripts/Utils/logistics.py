@@ -81,7 +81,7 @@ def landuse_geo(geo1,geo3, geo4, idx2,idx3):
             flu.append((idx_['FLU'].iloc[0]))  
         else:
             flu.append('NA')
-    pdb.set_trace()
+    # pdb.set_trace()
     flu_final = convert_flu(flu)
     zoning_final = convert_zoning(zoning)
     geo1['flu'] = list(((np.array(flu_final))/max(flu_final)))
