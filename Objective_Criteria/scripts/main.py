@@ -1,3 +1,4 @@
+print('Starting')
 import geopandas as gpd
 import os
 import sys
@@ -21,7 +22,6 @@ from density import *
 from kmeans import *
 import warnings
 warnings.filterwarnings("ignore")
-
 
 parser = argparse.ArgumentParser(description="Calculating objective criteria")
 parser.add_argument('--save_dir', type=str, default='../',
@@ -54,6 +54,7 @@ start = time.time()
 Reading all the shapefiles into geopandas for further processing
 Converting to EPSG:3857 for easy calculation in meters, EPSG 4326 for others
 '''
+print('Reading shapefiles')
 geo1 = gpd.read_file(args.parcel).to_crs(3857)
 geo2 = gpd.read_file(args.road).to_crs(3857)
 geo3 = gpd.read_file(args.flu).to_crs(3857)
@@ -68,6 +69,7 @@ geo9 = gpd.read_file(args.parks).to_crs(4326)
 If new zoning files have been created then the clustering shapefile 'areas' has to be regenerated for proper results
 '''
 if(args.regenerate):
+    print('Rcreating areas file')
     area_calc(args.parcel_before, args.parcel_after, args.buildings, args.res_centroids)
 '''
 Generating rtree idx for the required geopandas for quick computation

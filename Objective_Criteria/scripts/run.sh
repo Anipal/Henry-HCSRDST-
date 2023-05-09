@@ -1,14 +1,14 @@
 #!/bin/bash
 python3 main.py \
---save_dir ../../../data/Henry_County_data/Objective-Criteria/processed_files/ \
---road ../../../data/Henry_County_data/Objective-Criteria/Georgia\ Smart\ Communities/TDM_2020.shp \
---parcel ../../../data/Henry_County_data/Objective-Criteria/Georgia\ Smart\ Communities/Parcels.shp \
---flu ../../../data/Henry_County_data/Objective-Criteria/Georgia\ Smart\ Communities/Future\ Land\ Use.shp \
---zoning ../../../data/Henry_County_data/Historic\ Vector\ Data/Current_Zoning_Updated.shp \
---buildings ../../../data/Henry_County_data/Objective-Criteria/Georgia\ Smart\ Communities/Structures.shp \
---res_centroids ../../../data/Henry_County_data/Objective-Criteria/processed_files/centroids/res_density/areas_new.shp \
---schools ../../../data/Henry_County_data/Objective-Criteria/Georgia\ Smart\ Communities/Schools.shp \
---hospitals ../../../data/Henry_County_data/Objective-Criteria/Georgia\ Smart\ Communities/Hospitals.shp \
---parks ../../../data/Henry_County_data/Objective-Criteria/Georgia\ Smart\ Communities/Parks.shp \
---parcel_before ../../../data/Henry_County_data/Objective-Criteria/Georgia\ Smart\ Communities/Yearly\ Zoning\ Data/2006\ Zoning.shp \
---parcel_after ../../../data/Henry_County_data/Historic\ Vector\ Data/Current_Zoning_Updated.shp 
+--save_dir ../../../../data/shapefiles/ \
+--road ../../../../data/shapefiles/road/road.shp \
+--parcel ../../../../data/shapefiles/Parcels/Parcels.shp \
+--flu ../../../../data/shapefiles/flu/flu.shp \
+--zoning ../../../../data/shapefiles/zoning/zoning.shp \
+--buildings ../../../../data/shapefiles/structures/Structures.shp \
+--res_centroids ../../../../data/shapefiles/areas/areas.shp \
+--schools ../../../../data/shapefiles/Schools/Schools.shp \
+--hospitals ../../../../data/shapefiles/Hospitals/Hospitals.shp \
+--parks ../../../../data/shapefiles/Parks/Parks.shp \
+--parcel_before ../../../../data/shapefiles/parcel_before/parcel_before.shp \
+--parcel_after ../../../../data/shapefiles/parcel_after/parcel_after.shp
