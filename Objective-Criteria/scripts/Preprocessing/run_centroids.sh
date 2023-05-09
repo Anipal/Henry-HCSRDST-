@@ -1,3 +1,0 @@
-# python3 centroids.py --save_dir /mnt/c/Users/apal72/Documents/Anisha/data/Henry_County_data/Objective-Criteria/processed_files/centroids/ --geo_dir ../../../../data/Henry_County_data/Objective-Criteria/Georgia\ Smart\ Communities/Hospitals.shp
-# python3 centroids.py --save_dir /mnt/c/Users/apal72/Documents/Anisha/data/Henry_County_data/Objective-Criteria/processed_files/centroids/ --geo_dir ../../../../data/Henry_County_data/Objective-Criteria/Georgia\ Smart\ Communities/Parks.shp
-python3 centroids.py --save_dir /mnt/c/Users/apal72/Documents/Anisha/data/Henry_County_data/Objective-Criteria/processed_files/centroids/ --geo_dir ../../../../data/Henry_County_data/Objective-Criteria/Georgia\ Smart\ Communities/Parcels.shp

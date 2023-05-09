@@ -9,7 +9,7 @@ from shapely.ops import transform
 import pyproj
 import sys
 sys.path.append('../../../../../scripts/Utils')
-from poly_utils import buffer, polygon_list, graphs
+from poly_utils import graphs
 
 
 

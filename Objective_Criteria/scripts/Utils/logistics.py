@@ -11,18 +11,19 @@ import pyproj
 from functools import partial
 import sys
 import shapely.ops as ops
-from poly_utils import polygon_list_plain, graphs
-from matplotlib import pyplot as plt
-
+from poly_utils import graphs
+import warnings
+warnings.filterwarnings("ignore")
 def convert_flu(flu):
     flu = np.array(flu)
     flu[np.where((flu=='RR')| (flu=='PRC'))] = 0
     flu[np.where((flu=='HD') | (flu=='LD'))] = 1
-    flu[np.where(flu=='MD')] = 2
+    flu[np.where((flu=='MD') | (flu =='OI') | (flu =='CITY'))] = 2
     flu[np.where(flu=='MX')] = 3
     flu[np.where((flu=='COMM') | (flu=='COM'))] = 4
     flu[np.where((flu=='INDUS')| (flu=='PI')| (flu=='TCU') | (flu=='NA'))] = 5
 
+    flu = flu.astype(np.int64)
     flu = list(flu)
     return flu
 
@@ -33,8 +34,10 @@ def convert_zoning(zoning):
     zoning[np.where((zoning=='O1')| (zoning=='OI')|(zoning=='CITY')| (zoning=='DTMU') | (zoning=='MU'))] = 2
     zoning[np.where((zoning=='C1')| (zoning=='C2'))] = 3
     zoning[np.where((zoning=='C3')| (zoning=='IAC'))] = 4
-    zoning[np.where((zoning=='M1') | (zoning=='M2')| (zoning=='PD'))] = 5
+    zoning[np.where((zoning=='M1') | (zoning=='M2')| (zoning=='PD')|(zoning=='NA'))] = 5
+    zoning = zoning.astype(np.int64)
     zoning = list(zoning)
+    
     return zoning
 
 def overlap_calc(idx,poly):
