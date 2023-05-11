@@ -20,7 +20,7 @@ def distance_calc(df1, point):
         _,_,d = geod.inv(nearest[1].x, nearest[1].y, poly.x, poly.y)  
         # d = nearest[1].distance(poly)
         dist.append(d)
-    dist_ratio = list((np.array(dist))/max(dist))
+    dist_ratio = list((np.array(dist))/max(max(dist),1e-10))
     return dist, dist_ratio
 
 def res_geo(df1, df2):
@@ -28,7 +28,7 @@ def res_geo(df1, df2):
     df2_ = df2_.reset_index(drop=True)
     point = MultiPoint(df2_.geometry)
     dist, dist_ratio = distance_calc(df1,point)
-    df1['nearest-distance'] = dist
+    #df1['nearest-distance'] = dist
     df1['near-res'] = dist_ratio
     return df1
 

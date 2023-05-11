@@ -1,4 +1,4 @@
-print('Starting')
+print('Starting---------------------')
 import geopandas as gpd
 import os
 import sys
@@ -39,8 +39,8 @@ parser.add_argument('--parcel_before', type=str, default='../',help='put the pat
 parser.add_argument('--parcel_after', type=str, default='../',help='put the path to current years parcel shapefile')
 parser.add_argument('--parks', type=str, default='../',help='put the path to parks shapefile')
 parser.add_argument('--buffer_LOS', type=int, default=500,help='distance in m within which a parcel should have a road')
-parser.add_argument('--buffer_air', type=int, default=5000,help='distance in m indicating the distance from a road air particles travel')
-parser.add_argument('--buffer_noise', type=int, default=5000,help='distance in m indicating the distance from a road noise pollution is significant')
+parser.add_argument('--buffer_air', type=int, default=500,help='distance in m indicating the distance from a road air particles travel')
+parser.add_argument('--buffer_noise', type=int, default=100,help='distance in m indicating the distance from a road noise pollution is significant')
 parser.add_argument('--buffer_density', type=int, default=1000,help='distance in m indicating the distance from a parcel for calculating the density of residential buildings')
 parser.add_argument('--regenerate',action='store_true',help='enable if regeneration of the landuse clusters is required')
 args = parser.parse_args()

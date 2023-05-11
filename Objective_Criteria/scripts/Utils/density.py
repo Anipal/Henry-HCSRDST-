@@ -37,11 +37,13 @@ def struct_density(geo1, idx, buffer_distance):
         struct.append(total_hits)
         # area.append(area_diff)
         density_list.append(density)
-    # pdb.set_trace()
+    
     ## Adjust the area difference - check if it is correct(linear metric system )
     # geo1['area_diff'] = area
-    geo1['structures'] = struct
-    geo1['struct_density'] = list(1-(np.array(density_list))/(max(density_list),1e-10))
+    #geo1['structures'] = struct
+    print('Density_list',len(density_list))
+   
+    geo1['struct_density'] = list(1-(np.array(density_list))/max(max(density_list),1e-10))
     geo1 = geo1.drop('buffer', axis=1)
     return geo1
     

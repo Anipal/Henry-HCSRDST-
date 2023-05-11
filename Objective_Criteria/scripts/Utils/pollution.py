@@ -15,24 +15,12 @@ def flood_plain(geo):
     geo['flood'] = list(flood)
     return geo
 
-def noise(poly, road, buffer):
-    # pdb.set_trace()
-    road = road.to_crs(3857)
-    road_buffer = road['geometry'][0].buffer(buffer)
-    if (poly).intersects(road_buffer):
+def inter(poly, road):
+    if (poly).intersects(road):
         return 0
     else:
         return 1
 
-
-def air(poly, road, buffer):
-    
-    road = road.to_crs(3857)
-    road_buffer = road['geometry'][0].buffer(buffer)
-    if (poly).intersects(road_buffer):
-        return 0
-    else:
-        return 1
 def merge(df):
     multi_line = geometry.MultiLineString(df['geometry'].tolist())
     merged_line = ops.linemerge(multi_line)
@@ -46,9 +34,12 @@ def pollution_geo(parcels, road, buffer_air = 5000, buffer_noise = 5000):
     p = Polygon([*list(l1.coords), *list(l2.coords)])
     road_df = gpd.GeoDataFrame({'geometry':[p]})
     road_df.crs = road.crs
+    road_df = road_df.to_crs(3857)
+    road_noise = road_df['geometry'][0].buffer(buffer_noise)
+    road_air = road_df['geometry'][0].buffer(buffer_air)
     for poly in tqdm(parcels['geometry'], total = len(parcels['geometry'])):
-        noise_pollution.append(noise(poly, road_df, buffer_noise))
-        air_pollution.append(air(poly, road_df, buffer_air))
+        noise_pollution.append(inter(poly, road_noise))
+        air_pollution.append(inter(poly, road_air))
 
     parcels['air_poll'] = air_pollution
     parcels['noise_poll'] = noise_pollution

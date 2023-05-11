@@ -28,7 +28,7 @@ def distance_corridoor(geo1, geo2):
             # d = nearest[1].distance(poly)
         dist.append(best_d)
     # pdb.set_trace()
-    dist_ratio = list(1-((np.array(dist))/max(dist)))
+    dist_ratio = list(1-((np.array(dist))/max(max(dist),1e-10)))
     geo1['MajorCor'] = dist_ratio
     return geo1
 
@@ -82,7 +82,7 @@ def LOS_geo(geo1, geo2, idx1, buffer_distance = 500):
                 los.append(idx_['LOS'].iloc[0])  
         else:
             los.append(0)
-    geo1['LOS'] = list(np.array(los)/max(los))
+    geo1['LOS'] = list(np.array(los)/max(max(los),1e-10))
     geo1 = geo1.drop('buffer', axis=1)
 
     return geo1

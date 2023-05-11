@@ -136,7 +136,7 @@ def area_geo(geo1, idx):
     # pdb.set_trace()
     ## Adjust the area difference - check if it is correct(linear metric system )
 
-    geo1['constr_area'] = list(((np.array(constr_area))/max(constr_area)))
+    geo1['constr_area'] = list(((np.array(constr_area))/max(max(constr_area),1e-10)))
     geo1 = geo1.to_crs(3857)
     return geo1
 
