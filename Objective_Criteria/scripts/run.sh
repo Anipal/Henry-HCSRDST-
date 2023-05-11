@@ -10,5 +10,6 @@ python3 main.py \
 --schools ../../../../data/shapefiles/Schools/Schools.shp \
 --hospitals ../../../../data/shapefiles/Hospitals/Hospitals.shp \
 --parks ../../../../data/shapefiles/Parks/Parks.shp \
+--svi ../../../../data/shapefiles/SVI/SVI.shp \
 --parcel_before ../../../../data/shapefiles/parcel_before/parcel_before.shp \
 --parcel_after ../../../../data/shapefiles/parcel_after/parcel_after.shp

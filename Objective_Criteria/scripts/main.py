@@ -1,27 +1,4 @@
-print('Starting---------------------')
-
-'''
-Aim of this code is to generate a shapefile with all values apportioned to the parcel level. It contains a column for each of 
-the objective criteria with values objective normalized between 0 -1, with 0 being a the least favourable parcel  
-for construction and 1 most favourable. Following are the different criteria :
-
-1. Proximity to Residential Clusters - Lower proximity is preferred 
-2. Proximity to Major Freight Corridoors - higher proximity is preferred 
-3. Level of Service - A level of service A/B is most favourable and F is least
-4. Air Pollution - Parcels prone to higher air pollution are less favourable 
-5. Noise Pollution - Parcels prone to higher noise pollution are less favourable 
-6. Flood Plain - Parcels prone to flooding are less favourable 
-7. Landuse - Parcels which are industrial or commercial are most favoured
-8. Construction Area - Parcels with higher area available for construction are favoured 
-9. Proximity to Schools and Hospitals - Lower proximity is preferred 
-10. Proximity to Environmentally sensitive areas - Lower Proximity is preferred
-11. Structural density - Residential density of buildings surrounding the parcel, lower density is preferred
-
-This shapefile will be fed to the Henry County Decision Support Tool for 
-weighting the different criteria and deciding sites suitable for construction. 
-
-'''
-
+print('Starting')
 import geopandas as gpd
 import os
 import sys
@@ -61,9 +38,10 @@ parser.add_argument('--hospitals', type=str, default='../',help='put the path to
 parser.add_argument('--parcel_before', type=str, default='../',help='put the path to preceding years parcel shapefile')
 parser.add_argument('--parcel_after', type=str, default='../',help='put the path to current years parcel shapefile')
 parser.add_argument('--parks', type=str, default='../',help='put the path to parks shapefile')
+parser.add_argument('--svi', type=str, default='../',help='put the path to svi shapefile')
 parser.add_argument('--buffer_LOS', type=int, default=500,help='distance in m within which a parcel should have a road')
-parser.add_argument('--buffer_air', type=int, default=500,help='distance in m indicating the distance from a road air particles travel')
-parser.add_argument('--buffer_noise', type=int, default=100,help='distance in m indicating the distance from a road noise pollution is significant')
+parser.add_argument('--buffer_air', type=int, default=5000,help='distance in m indicating the distance from a road air particles travel')
+parser.add_argument('--buffer_noise', type=int, default=5000,help='distance in m indicating the distance from a road noise pollution is significant')
 parser.add_argument('--buffer_density', type=int, default=1000,help='distance in m indicating the distance from a parcel for calculating the density of residential buildings')
 parser.add_argument('--regenerate',action='store_true',help='enable if regeneration of the landuse clusters is required')
 args = parser.parse_args()
@@ -87,17 +65,12 @@ geo6 = gpd.read_file(args.res_centroids).to_crs(4326)
 geo7 = gpd.read_file(args.schools).to_crs(4326)
 geo8 = gpd.read_file(args.hospitals).to_crs(4326)
 geo9 = gpd.read_file(args.parks).to_crs(4326)
+geo10 = gpd.read_file(args.svi).to_crs(3857)
 
 '''
 If new zoning files have been created then the clustering shapefile 'areas' has to be regenerated for proper results
 '''
 if(args.regenerate):
-
-    '''
-    Using kmeans finding residential, industrial, commercial and no developement clusters
-    Inputs: Parcel data of the previous year (geoDataFrame object), Parcel data of the current year (geoDataFrame object), Path to the buildings shapefile, Path to saving the areas file
-    Output: Areas file(geopandas dataframe)
-    '''
     print('Rcreating areas file')
     area_calc(args.parcel_before, args.parcel_after, args.buildings, args.res_centroids)
 '''
@@ -188,10 +161,18 @@ Output: Parcels data with added column 'near-env', normalized scores between 0-1
 print('Environmental Proximity') 
 geo1 = env_geo(geo1, geo9)
 
+'''
+Social Vulnerability - Parcels most suitable for construction based on their Social Vulnerability Index (SVI) Score
+Inputs: Parcels data(geopandas polygon dataframe), SVI score geodataframe
+Output: Parcels data with added column 'svi', normalized scores between 0-1.
+''' 
+print("Social Vulnerability")
+geo1 = svi_geo(geo1, geo10)
+
 
 '''
 Structural Density - Parcels most suitable for construction based on residential density around the parcel
-Inputs: Parcels data(geopandas polygon dataframe), Buildings data only for residential buildings (rtree index), Buffer added to the parcel in m for density calculation (int)
+Inputs: Parcels data(geopandas polygon dataframe), Buildings data only for residential buildings (rtree index)
 Output: Parcels data with added column 'struct_density', normalized scores between 0-1.
 ''' 
 print('Structural Density')
