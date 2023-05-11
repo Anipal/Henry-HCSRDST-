@@ -29,12 +29,12 @@ def convert_flu(flu):
 
 def convert_zoning(zoning):
     zoning = np.array(zoning)
-    zoning[np.where((zoning=='RA')| (zoning=='R1') | (zoning=='R2') |(zoning=='R3') | (zoning=='R4') | (zoning=='R5') | (zoning=='RS')| (zoning=='RD'))] = 0
+    zoning[np.where((zoning=='RA')| (zoning=='R1') | (zoning=='R2') |(zoning=='R3') | (zoning=='R4') | (zoning=='R5') | (zoning=='RS')| (zoning=='RD') | (zoning=='PD'))] = 0
     zoning[np.where((zoning=='RM') | (zoning=='RMH')| (zoning=='DTRC')| (zoning=='MR1')| (zoning=='MR2'))] = 1
     zoning[np.where((zoning=='O1')| (zoning=='OI')|(zoning=='CITY')| (zoning=='DTMU') | (zoning=='MU'))] = 2
     zoning[np.where((zoning=='C1')| (zoning=='C2'))] = 3
     zoning[np.where((zoning=='C3')| (zoning=='IAC'))] = 4
-    zoning[np.where((zoning=='M1') | (zoning=='M2')| (zoning=='PD')|(zoning=='NA'))] = 5
+    zoning[np.where((zoning=='M1') | (zoning=='M2')|(zoning=='NA'))] = 5
     zoning = zoning.astype(np.int64)
     zoning = list(zoning)
     
