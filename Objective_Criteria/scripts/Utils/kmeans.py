@@ -9,8 +9,11 @@ import pdb
 from tqdm import tqdm
 from poly_utils import graphs
 
+
+
 def add_coords(df1):
-    # pdb.set_trace()
+    
+    #Adding the Lat Long coordinates for each polygon in the DataFrame
     test_gj = gpd.GeoDataFrame(df1)
     df1['Lon'] = test_gj['geometry'].x
     df1['Lat'] = test_gj['geometry'].y
@@ -18,59 +21,49 @@ def add_coords(df1):
 
 def add_fields(df1,change):
 
+    #If the centroid is part of a change parcel then assign 'Y' to the 'change' attribute else 'N'
     if(change):
         df1['change'] =['Y']*len(df1)
     else:
        df1['change'] =['N']*len(df1) 
     return df1 
 
-# def change_calc(poly_list_1,poly_list_2,class_1,class_2):
-#     # pdb.set_trace()
-#     flag1 = np.zeros((len(poly_list_1)), dtype = 'uint8')
-#     class_3 = ['no']*len(flag1)
-#     for i in tqdm(range(len(poly_list_1))):
-#         if not(type(poly_list_1[i])==type(None)):
-#             for j in range(len(poly_list_2)):
-#                 if not(type(poly_list_2[j])==type(None)):
-#                     item_poly = poly_list_2[j]
-#                     if (item_poly).intersects(poly_list_1[i]):
-#                             inter = (item_poly).intersection(poly_list_1[i])
-#                             union = (item_poly).union(poly_list_1[i])
-#                             iou = float(inter.area / union.area)                   
-#                             if iou > 0.5 :
-#                                 # pdb.set_trace()
-#                                 if not(class_1[i]==class_2[j]):
-#                                     flag1[i] = 1
-#                                     if not((type(class_2[i]) == type(None)) or (type(class_1[i]) == type(None))):
-#                                         class_3[i] = class_2[j] + '_to_' + class_1[i]     
-#                                     else:
-#                                         class_3[i] = 'None_to_'+ class_1[i] 
-#                 else:
-#                     flag1[i] = 1
-#     return flag1, class_3
-
 def change_calc(poly_list_1,idx, geo2,class_1):
   
+    # Initializing a flag of 0s with the size of the parcel polygon list 
     flag1 = np.zeros((len(poly_list_1)), dtype = 'uint8')
+
+    #Initializing the attribute which specified what kind of change the parcel goes through
     class_3 = ['no']*len(flag1)
+
+    #Iterating for each polygon 
     for i in tqdm(range(len(poly_list_1))):
         max_iou = 0
         poly = poly_list_1[i]
+
+        # Finding the number of intersections of the current zoning data with the old
         hits = list(idx.intersection((poly.bounds), objects = True))
         for box in hits:
             item_poly = box.object
+
+            #Fixing invalid polygons
             if not(item_poly.is_valid):
                 item_poly = item_poly.buffer(0)
+
+            # Checking if the polygon is valid 
             if(item_poly.is_valid):
                 try:
                     if(item_poly).intersects(poly):
                             inter = (item_poly).intersection(poly)
-                            iou = float(inter.area / poly.area)                   
+                            iou = float(inter.area / poly.area) 
+
+                            #Finding the polygon with maximum intersection with the after polygon                  
                             if iou > 1e-5 :
                                 if(iou>max_iou):
                                     max_iou = iou
                                     idx_ = geo2[geo2.contains(item_poly)]
                                     class_2 = idx_['ZONING'].iloc[0]
+                                    #If the zoning hasn't changed then it is not counted as a change, flag = 0 indicates change
                                     if not(class_1[i]==class_2):
                                         flag1[i] = 0
                                         if not((type(class_2) == type(None)) or (type(class_1[i]) == type(None))):
@@ -83,6 +76,8 @@ def change_calc(poly_list_1,idx, geo2,class_1):
                     pass
     return flag1, class_3
 def flag_compare(flag,poly_list,class_3):
+
+    # If flag is 0 then change has occured else not, creating a geoDataFrame with only changed polygon parcels
     unq = []
     class_4 = []
     for i in tqdm(range(len(poly_list))):
@@ -93,11 +88,13 @@ def flag_compare(flag,poly_list,class_3):
 
 def parcel_change(geo_before, geo_after):
     
+    # Calculting change only for parcels which have changed to industrial land use
     idx_before = graphs(geo_before['geometry'])
     geo2_ = geo_after[geo_after.ZONING.str.contains('(MU)|(M1)|(M2)|(MR1)|(MR2)|(DTMU)|(C1)|(C2)|(C3)|(OI)|(PD)', na=False)]
     geo2_ = geo2_.reset_index(drop=True)
     poly_after = geo2_['geometry'].tolist()
     
+
     # class_before = geo_before['ZONING'].tolist()
     class_after = geo2_['ZONING'].tolist()
     flag_after_nochange, class_3 = change_calc(poly_after, idx_before,geo_before,class_after)
@@ -107,6 +104,7 @@ def parcel_change(geo_before, geo_after):
 
 def centroids(poly):
 
+    # Converting the buildings polygon shapefile to a centroid point shapefile
     points = poly.copy()
     points.geometry = points['geometry'].centroid
     points.crs =poly.crs
@@ -129,15 +127,21 @@ def combine(change, structures):
 
 def clustering(geo_before,geo_after,structures):
    
+    # Calcuting parcel level change
     geo_change = parcel_change(gpd.read_file(geo_before).to_crs(4326), gpd.read_file(geo_after).to_crs(4326))
     # geo_change.to_file('./trial/change.shp')
+
+    # Adding the change polygon centroids with the builings to find clusters with change
     geo1 = combine(geo_change, structures)
     # geo1.to_file('./trial/combine.shp')
-    # pdb.set_trace()
     coords = []
+
+    #Creating the coordinates list for kmeans
     for i in tqdm(range(len(geo1)), total = len(geo1)):
         coords.append([np.asarray(geo1['geometry'][i].coords.xy[0])[0], np.asarray(geo1['geometry'][i].coords.xy[1])[0]])
     coordinates = np.array(coords)
+
+    #Running kmeans with 50 clusters
     kmeans = KMeans(n_clusters=50)
     kmeans.fit(coordinates)
     geo1['CLUSTER_ID'] = kmeans.labels_
@@ -149,7 +153,8 @@ def cluster_density(df2_str):
     df =df2_str[df2_str['change'] =='Y']
     labels_change = df['CLUSTER_ID'].unique()
     df_cluster_significance = pd.DataFrame(columns = ["Cluster", "Lon", "Lat", "Residential","Conservation","Industrial","Commercial","Public","Rec","Gov","State","Others","Total", "Change"])
-    # pdb.set_trace()
+    
+    # Assigning each point in the cluster the percentage of each building type in the cluster
     for i,j in tqdm(enumerate(df2_str['CLUSTER_ID'].unique()), total = len(df2_str)):
         df3 = df_Y[df_Y['CLUSTER_ID'] == j]
         lon = (df3['Lon'].mean())
@@ -163,6 +168,8 @@ def cluster_density(df2_str):
         gov = len(np.where(df3["PROP_USE_D"].str.contains("CITY"))[0])+len(np.where(df3["PROP_USE_D"].str.contains("COUNTY"))[0])
         state = len(np.where(df3["PROP_USE_D"].str.contains("STATE"))[0])
         others = len(df3) - (res+consv+indus+comm+rec+gov+state+public)
+
+        #If a point belongs to a clutser which has experienced industrial change then it is marked as Y else N
         if(j in labels_change):
             df_cluster_significance.loc[i] = [j,lon,lat,res/len(df3),consv/len(df3),indus/len(df3),comm/len(df3),public/len(df3),rec/len(df3),gov/len(df3),state/len(df3),others/len(df3),len(df3),"Y"]
         else:
@@ -172,15 +179,28 @@ def cluster_density(df2_str):
     gdf = gpd.GeoDataFrame(df_cluster_significance, crs="EPSG:4326", geometry=geometry)
     return gdf
 
+
+'''
+Using kmeans finding residential, industrial, commercial and no developement clusters
+INPUTS: Parcel data of the previous year (geoDataFrame object), Parcel data of the current year (geoDataFrame object), Path to the buildings shapefile, Path to saving the areas file
+OUTPUT: Areas file(geopandas dataframe)
+'''
+
 def area_calc(geo_before,geo_after,structures, save_path):
     
+    #Performing kmeans clustering
     cluster = clustering(geo_before,geo_after,structures)
+    #Finding the percentage of buildings of each type within the clusters
     df = cluster_density(cluster)
     # df.to_file('./trial/cluster_density.shp')
     
     df_area = pd.DataFrame(columns = df.columns)
+
+    #Adding new columns 'Area' and 'growth'
     df_area["Area"] = ""
     df_area["growth"] = ""
+
+    # Finding the avergae percentage of each building type 
     indus_mean = df['Industrial'].mean()
     comm_mean = df['Commercial'].mean()
     res_mean = df['Residential'].mean()
@@ -188,6 +208,8 @@ def area_calc(geo_before,geo_after,structures, save_path):
     k = 0
     
     for i in tqdm(range(len(df)),total = len(df)):
+        
+        #For each datapoint find if the building type percentage is above the average for that type then we assign the cluster that type 
         if df['Residential'].iloc[i] <res_mean and df['Public'].iloc[i]<pub_mean :
             if df['Industrial'].iloc[i] >indus_mean:
                 df_area.loc[k] = [df.Cluster.iloc[i], df.Lon.iloc[i], df.Lat.iloc[i], df.Residential.iloc[i],df.Conservation.iloc[i],df.Industrial.iloc[i],df.Commercial.iloc[i],df.Public.iloc[i],df.Rec.iloc[i],df.Gov.iloc[i],df.State.iloc[i],df.Others.iloc[i],df.Total.iloc[i], df.Change.iloc[i],df.geometry.iloc[i],'Industrial','Y']
@@ -209,7 +231,8 @@ def area_calc(geo_before,geo_after,structures, save_path):
         else:
             df_area.loc[k] = [df.Cluster.iloc[i], df.Lon.iloc[i], df.Lat.iloc[i], df.Residential.iloc[i],df.Conservation.iloc[i],df.Industrial.iloc[i],df.Commercial.iloc[i],df.Public.iloc[i],df.Rec.iloc[i],df.Gov.iloc[i],df.State.iloc[i],df.Others.iloc[i],df.Total.iloc[i], df.Change.iloc[i],df.geometry.iloc[i],'NO DEV','N']
             k = k+1
-    # pdb.set_trace()
+
+    # Adding point geometry the dataframe
     geometry = [Point(xy) for xy in zip(df_area.Lon, df_area.Lat)]
     gdf = gpd.GeoDataFrame(df_area, crs="EPSG:4326", geometry=geometry)
     # gdf.to_file(save_path)
