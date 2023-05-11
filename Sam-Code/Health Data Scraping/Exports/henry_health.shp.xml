@@ -1,2 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<metadata xml:lang="en"><Esri><CreaDate>20221110</CreaDate><CreaTime>08473800</CreaTime><ArcGISFormat>1.0</ArcGISFormat><SyncOnce>TRUE</SyncOnce><DataProperties><lineage><Process ToolSource="c:\program files\arcgis\pro\Resources\ArcToolbox\Toolboxes\Data Management Tools.tbx\DeleteField" Date="20221110" Time="084738">DeleteField "Henry Border" GEOID "Delete Fields"</Process></lineage></DataProperties></Esri></metadata>
