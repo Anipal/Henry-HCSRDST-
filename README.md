@@ -48,7 +48,7 @@ Official repo for HCSRDST
     | zoning | zoning.shp | ZONING | zoning info | All capitals |
     | landuse | flu.shp | FLU | future land use info |All capitals
     | parcels | Parcels.shp | FLOOD_PLAI | whether the parcel is a flood plain |  YES, NO
-    | road | road.shp | NAME, amlos, pmlos	name of the road, LOS at morning, LOS at evening	I-75 / GA-401 SOUTHBOUND, I-75 / GA-401 NORTHBOUND ; A/B, C, D, E ,F |
+    | road | road.shp | NAME, amlos, pmlos | name of the road, LOS at morning, LOS at evening |	I-75 / GA-401 SOUTHBOUND, I-75 / GA-401 NORTHBOUND ; A/B, C, D, E ,F |
     | zoning data for previous year | parcel_before.shp | ZONING | zoning info | All capitals |
     | zoning data for current year | parcel_after.shp | ZONING | zoning info | All capitals |
 
