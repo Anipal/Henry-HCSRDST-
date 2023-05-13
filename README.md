@@ -19,7 +19,7 @@ Official repo for HCSRDST
     | zoning data for previous year | parcel_before |
     | location of environmentally sensitive areas | Parks.shp|
     |location of  Schools| Schools |
-3. Run the file using the following command : ```bash ./run.sh```. It will take approximately 3 hours for the entire file to run.
+3. Run the file using the following command : ```./run.sh```. It will take approximately 3 hours for the entire file to run.
 4. The resulting scored file will be generated in the given path ```Objective_Criteria\shapefiles\criteria\criteria.shp```
 5. To visualize in any GIS tool use CRS: ```EPSG 26967```
 
