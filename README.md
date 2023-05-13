@@ -6,7 +6,7 @@ Official repo for HCSRDST
 1. Setup the environment by running  ```pip3 install -r Objective_Criteria/requirements.txt``` 
 2. Create a shapefiles inside folder in the ```Objective_Criteria``` folder and add all the necessary shapefiles to it
 3. If run.sh is to be run directly without modifying the name of the files passed in the arguments, then the following naming convention should be followed :
-    | Shapefile content | Shapefile name |
+    | **Shapefile content** | **Shapefile name** |
     |  ----------- | ----------- |
     | buildings | Structures.shp |
     | zoning | zoning.shp |
@@ -42,7 +42,7 @@ Official repo for HCSRDST
     * INDUS, PI, TCU
 3. Naming convention to be followed for the attributes in the given shapefiles :
 
-    | Shapefile content | Shapefile name | Attribute Name | Attribute Content | Attribute Value | 
+    | **Shapefile content** | **Shapefile name** | **Attribute Name** | **Attribute Content** | **Attribute Value** | 
     |  ------- |  ------- |  ------- | ----------- | ------- |
     | buildings | Structures.shp | PROP_USE_D | property use info| All capitals | 
     | zoning | zoning.shp | ZONING | zoning info | All capitals |
