@@ -41,8 +41,9 @@ Official repo for HCSRDST
     * COMM, COM
     * INDUS, PI, TCU
 3. Naming convention to be followed for the attributes in the given shapefiles :
+
     | Shapefile content | Shapefile name | Attribute Name | Attribute Content | Attribute Value | 
-    |  ------- | |  ------- | |  ------- | | ----------- | ------- |
+    |  ------- |  ------- |  ------- | ----------- | ------- |
     | buildings | Structures.shp | PROP_USE_D | property use info| All capitals | 
     | zoning | zoning.shp | ZONING | zoning info | All capitals |
     | landuse | flu.shp | FLU | future land use info |All capitals
