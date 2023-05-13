@@ -14,6 +14,9 @@ import shapely.ops as ops
 from poly_utils import graphs
 import warnings
 warnings.filterwarnings("ignore")
+
+
+
 def convert_flu(flu):
     flu = np.array(flu)
     flu[np.where((flu=='RR')| (flu=='PRC'))] = 0
@@ -41,8 +44,6 @@ def convert_zoning(zoning):
     return zoning
 
 def overlap_calc(idx,poly):
-    # print(type(idx))
-    # pdb.set_trace()
     if not(poly.is_valid):
         poly = poly.buffer(0)
     if(poly.is_valid):
