@@ -11,16 +11,32 @@ import numpy as np
 import requests
 
 
+'''
+
+Calculates the distance of a parcel to the nearest point from a DataFrame of many points
+INPUTS: Parcel data (geopandas DataFrame), point data (geopandas DataFrame)
+OUTPUT: normalized nearest distance to a point for each parcel 
+'''
+
 def distance_calc(df1, point):
+
+    #Converting crs to 4326 for proper conversion 
     df1 = df1.to_crs(4326)
     dist = []
+
+    #Setting the projection 
     geod = pyproj.Geod(ellps = 'WGS84')
     for i in tqdm(range(len(df1['geometry']))):
+
+        #Finding centroid of the parcel
         poly = df1['geometry'][i].centroid   
+        #Finding the nearest point geometry in point geoDataFrame from the given parcel  
         nearest = nearest_points(poly, point)
+        #Calculating the distance in m to the nearest point 
         _,_,d = geod.inv(nearest[1].x, nearest[1].y, poly.x, poly.y)  
         # d = nearest[1].distance(poly)
         dist.append(d)
+    #Normalizing the distance 
     dist_ratio = list((np.array(dist))/max(dist))
     return dist, dist_ratio
 
@@ -48,24 +64,59 @@ def apportion(df1, df2, join_fields):
     #Return final
     return final
 
+'''
+Residential Proximity - Proximity of parcels to residential clusters 
+INPUTS: Parcels data(geopandas polygon dataframe), Area clusters data (geopandas polygon dataframe)
+OUTPUT: Parcels data with added column 'near-res', ratio of distance to nearest residential cluster
+'''
+
 def res_geo(df1, df2):
+
+    #Filtering only those clusters which are either tagged as Residential or NO DEV 
     df2_ = df2[(df2['Area']=='NO DEV') | (df2['Area']=='Residential')]
+    #For the filtered values to be sequential dropping their index 
     df2_ = df2_.reset_index(drop=True)
+    #Converting the filtered cluster points to a MultiPoint geometry 
     point = MultiPoint(df2_.geometry)
     dist, dist_ratio = distance_calc(df1,point)
-    df1['nearest-distance'] = dist
+
+    #Assigning the near-res column the normalized value of the distance to the closest cluster point
+    # df1['nearest-distance'] = dist
     df1['near-res'] = dist_ratio
     return df1
 
+
+'''
+Public Proximity - Parcels most suitable for construction based on their proximity from schools and hospitals  
+INPUTS: Parcels data(geopandas polygon dataframe), Schools data(geopandas polygon dataframe), Hospitals data(geopandas polygon dataframe)
+OUTPUT: Parcels data with added column 'near-pub', normalized scores between 0-1.
+''' 
+
+
 def public_geo(df1, df2, df3):
+
+    #Combining all the points from Schools and Hospitals to create a new DataFrame 
     point = MultiPoint(df2['geometry'].tolist() + df3['geometry'].tolist())
+    #Calculating distance of each parcel to nearest vulnerable point
     _ , dist_ratio = distance_calc(df1,point)
+
+    #Assigning the near-pub column the normalized value of the distance to the closest School or Hospital point
     df1['near-pub'] = dist_ratio
     return df1
 
+'''
+Environmental Proximity - Parcels most suitable for construction based on their proximity from environmentally sensitive areas
+INPUTS: Parcels data(geopandas polygon dataframe), Parks data(geopandas polygon dataframe)
+OUTPUT: Parcels data with added column 'near-env', normalized scores between 0-1.
+''' 
+
 def env_geo(df1, df2):
+
+    #Converting the environmentally sensitive area Points geometry into a MultiPoint geometry
     point = MultiPoint(df2.geometry)
+    #Finding distance of each parcel to the nearest environmentally sensitive area
     _ , dist_ratio = distance_calc(df1,point)
+    #Assigning the near-env column the normalized value of the distance to the closest environmentally sensitive area
     df1['near-env'] = dist_ratio
     return df1
 
