@@ -24,7 +24,7 @@ Official repo for HCSRDST
 5. To visualize in any GIS tool use CRS: ```EPSG 26967```
 
 ## Important Information pertaining to attribute columns in the shapefiles
-1. For zoning shapefile if any zoning apart from the following is added to the new database then the code will have to be modified to function:
+1. For **zoning** shapefile if any zoning apart from the following is added to the new database then the code will have to be modified to function:
     * RA, R1, R2, R3, R4, R5, RS, RD, RM, RMH
     * DTRC, DTMU
     * MR1, MR2
@@ -33,7 +33,7 @@ Official repo for HCSRDST
     * C1, C2, C3
     * IAC
     * M1, M2, PD
-2. For landuse(flu) shapefile if any zoning apart from the following is added to the new database then the code will have to be modified to function:
+2. For **landuse(flu)** shapefile if any zoning apart from the following is added to the new database then the code will have to be modified to function:
     * RR, PRC
     * HD, LD, MD
     * OI, CITY
