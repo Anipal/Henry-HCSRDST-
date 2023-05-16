@@ -169,6 +169,15 @@ Output: Parcels data with added column 'svi', normalized scores between 0-1.
 print("Social Vulnerability")
 geo1 = svi_geo(geo1, geo10)
 
+'''
+Population Density - Parcels most suitable for construction based on their Social Vulnerability Index (SVI) Score
+Inputs: Parcels data(geopandas polygon dataframe), SVI score geodataframe
+Output: Parcels data with added column 'svi', normalized scores between 0-1.
+''' 
+print("Population Density")
+geo1 = pop_density(geo1, 2021, 'B01001_001E', '13151')
+
+
 
 '''
 Structural Density - Parcels most suitable for construction based on residential density around the parcel
@@ -181,6 +190,7 @@ geo5_ = geo5_.reset_index(drop=True)
 geo5_ = geo5_.to_crs(3857)
 idx5_ = graphs(geo5_['geometry'])
 geo1 = struct_density(geo1, idx5_, args.buffer_density)
+
 geo1 = geo1.to_crs(26967)
 
 name_dir = 'criteria'

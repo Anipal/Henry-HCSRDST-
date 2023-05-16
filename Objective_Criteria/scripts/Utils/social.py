@@ -1,4 +1,5 @@
 import geopandas as gpd
+import pandas as pd
 import os
 import pdb
 from tqdm import tqdm
@@ -9,6 +10,7 @@ import pyproj
 from functools import partial
 import numpy as np
 import requests
+import pygris
 
 
 '''
@@ -120,17 +122,60 @@ def env_geo(df1, df2):
     df1['near-env'] = dist_ratio
     return df1
 
-def svi_geo(df1, df2):
-    svi = df2.copy()[['RPL_THEMES', 'geometry']].to_crs(df1.crs)
+'''
+Social Vulnerability (SVI) - Parcels most suitable for construction based on the Social Vulnerability Index (SVI) of their containing census tract.
+INPUTS: Parcels data(geopandas polygon dataframe), SVI data(geopandas polygon dataframe), variable name of the SVI score from the SVI dataframe(refer to SVI documentation online).
+OUTPUT: Parcels data with added column 'svi', normalized scores between 0-1.
+''' 
+
+def svi_geo(df1, df2, varname='RPL_THEMES'):
+    svi = df2.copy()[[varname, 'geometry']].to_crs(df1.crs)
 
     #Replace invalid values with zero / 1
-    svi.loc[svi['RPL_THEMES'] < 0, 'RPL_THEMES'] = 0
-    svi.loc[svi['RPL_THEMES'] > 1, 'RPL_THEMES'] = 1
+    svi.loc[svi[varname] < 0, varname] = 0
+    svi.loc[svi[varname] > 1, varname] = 1
 
     #Append SVI score to df1
-    df1 = apportion(df1, svi, 'RPL_THEMES').rename(columns={'RPL_THEMES':'svi'})
+    df1 = apportion(df1, svi, varname).rename(columns={varname:'svi'})
+    #Update score to reverse, so a higher SVI is bad
+    df1['svi'] = 1 - df1['svi']
 
     return df1
+
+
+'''
+Population Density - Parcels most suitable for construction based on the population density of their containing census tract.
+INPUTS: Parcels data(geopandas polygon dataframe), ACS-5 Year, ACS-5 population variable(may change based on newer survey releases), FIPS code for Henry County
+OUTPUT: Parcels data with added column 'pop-dens', normalized scores between 0-1.
+'''
+
+def pop_density(df1, year=2021, varname='B01001_001E', fips:str='13151'):
+
+    #URL for pulling population estimates for each tract.
+    furl = 'https://api.census.gov/data/{}/acs/acs5?get={}&for=tract:*&in=state:{}+county:{}'.format(str(year), varname, fips[:2], fips[-3:])
+    #Execute request
+    raw = requests.get(furl).json()
+    #Convert to dataframe
+    df2 = pd.DataFrame(raw[1:], columns = raw[0]).rename(columns={varname:'pop'})
+    #Get geometries using pygris, setting to EPSG:26967 to depict population density in km^2
+    geoms = pygris.tracts(year=year, state=fips[:2], county=fips[-3:])[['STATEFP', 'COUNTYFP', 'TRACTCE', 'geometry']].rename(columns={'STATEFP':'state','COUNTYFP':'county','TRACTCE':'tract'}).to_crs('EPSG:26967')
+    #Calculate area in km
+    geoms['area'] = geoms['geometry'].area * 1e-6
+    #Merge geometries to population density frame
+    df2_ = df2.merge(geoms, on = ['state','county','tract'], how = 'left')
+    #Convert to geodataframe
+    df2_ = gpd.GeoDataFrame(df2_)
+    #Calculate population density
+    df2_['pop_dens'] = df2_['pop'].apply(float) / df2_['area'].apply(float)
+    #Min-max transformation to normalize, then reverse so a higher population density is bad
+    df2_['pop-dens'] = (df2_['pop_dens'] - np.min(df2_['pop_dens'])) / (np.max(df2_['pop_dens']) - np.min(df2_['pop_dens']))
+    df2_['pop-dens'] = 1-df2_['pop-dens']
+    #Re-project
+    df2_ = df2_.to_crs(df1.crs)
+    #Apportion with parcels
+    final = apportion(df1, df2_, 'pop-dens')
+
+    return final
 
 
 
