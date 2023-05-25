@@ -19,6 +19,7 @@ Official repo for HCSRDST
     | zoning data for previous year | parcel_before |
     | location of environmentally sensitive areas | Parks.shp|
     |location of  Schools| Schools |
+    | social vulnerability index | SVI.shp
 3. Run the file using the following command : ```./run.sh```. It will take approximately 3 hours for the entire file to run.
 4. The resulting scored file will be generated in the given path ```Objective_Criteria\shapefiles\criteria\criteria.shp```
 5. To visualize in any GIS tool use CRS: ```EPSG 26967```
@@ -51,5 +52,6 @@ Official repo for HCSRDST
     | road | road.shp | NAME, amlos, pmlos | name of the road, LOS at morning, LOS at evening |	I-75 / GA-401 SOUTHBOUND, I-75 / GA-401 NORTHBOUND ; A/B, C, D, E ,F |
     | zoning data for previous year | parcel_before.shp | ZONING | zoning info | All capitals |
     | zoning data for current year | parcel_after.shp | ZONING | zoning info | All capitals |
+    | social vulnerability index | svi.shp | RPL_THEMES | svi score relative to nation | numeric percentile
 
 
