@@ -1,0 +1,11 @@
+{
+"type": "FeatureCollection",
+"name": "cities",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:EPSG::6446" } },
+"features": [
+{ "type": "Feature", "properties": { "Name": "McDonough" }, "geometry": { "type": "Point", "coordinates": [ 701752.330099999904633, 382289.205700000748038 ] } },
+{ "type": "Feature", "properties": { "Name": "Locust Grove" }, "geometry": { "type": "Point", "coordinates": [ 705418.573599999770522, 370790.532999999821186 ] } },
+{ "type": "Feature", "properties": { "Name": "Hampton" }, "geometry": { "type": "Point", "coordinates": [ 689170.449099999852479, 375539.9847999997437 ] } },
+{ "type": "Feature", "properties": { "Name": "Stockbridge" }, "geometry": { "type": "Point", "coordinates": [ 694336.519399999640882, 392871.317600000649691 ] } }
+]
+}
