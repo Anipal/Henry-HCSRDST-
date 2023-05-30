@@ -25,6 +25,7 @@ get_survey_responses <- function(surveyid, api_key){
   
   Sys.sleep(5)
   
+  #Export survey results
   url <- paste0("https://iad1.qualtrics.com/API/v3/surveys/", surveyid, "/export-responses/", progress_id)
   
   req <- GET(url,
@@ -43,7 +44,7 @@ get_survey_responses <- function(surveyid, api_key){
              content_type("application/octet_stream")
   )
   
-  #Parse content from bin
+  #Parse content from binary
   content <- content(req)
   tf <- tempfile()
   writeBin(content, tf)
