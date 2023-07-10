@@ -9,3 +9,4 @@ Objective_Criteria/shapefiles
 /venv
 /venv_new
 __pycache__/
+/profiling/web-app-trace.json
