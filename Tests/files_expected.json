@@ -1,0 +1,109 @@
+{
+    "areas": [
+        "areas.cpg",
+        "areas.dbf",
+        "areas.prj",
+        "areas.shp",
+        "areas.shx"
+    ],
+    "flu": [
+        "flu.CPG",
+        "flu.dbf",
+        "flu.lyr",
+        "flu.prj",
+        "flu.sbn",
+        "flu.sbx",
+        "flu.shp",
+        "flu.shp.xml",
+        "flu.shx"
+    ],
+    "Hospitals": [
+        "Hospitals.cpg",
+        "Hospitals.dbf",
+        "Hospitals.prj",
+        "Hospitals.shp",
+        "Hospitals.shx"
+    ],
+    "Parcels": [
+        "Parcels.cpg",
+        "Parcels.dbf",
+        "Parcels.prj",
+        "Parcels.shp",
+        "Parcels.shx"
+    ],
+    "parcel_after": [
+        "parcel_after.cpg",
+        "parcel_after.dbf",
+        "parcel_after.prj",
+        "parcel_after.sbn",
+        "parcel_after.sbx",
+        "parcel_after.shp",
+        "parcel_after.shp.xml",
+        "parcel_after.shx"
+    ],
+    "parcel_before": [
+        "parcel_before.dbf",
+        "parcel_before.MAP_PARC_1.atx",
+        "parcel_before.prj",
+        "parcel_before.sbn",
+        "parcel_before.sbx",
+        "parcel_before.shp",
+        "parcel_before.shp.xml",
+        "parcel_before.shx"
+    ],
+    "Parks": [
+        "Parks.cpg",
+        "Parks.dbf",
+        "Parks.prj",
+        "Parks.shp",
+        "Parks.shx"
+    ],
+    "road": [
+        "road.cpg",
+        "road.dbf",
+        "road.prj",
+        "road.sbn",
+        "road.sbx",
+        "road.shp",
+        "road.shp.xml",
+        "road.shx"
+    ],
+    "Schools": [
+        "Schools.cpg",
+        "Schools.dbf",
+        "Schools.prj",
+        "Schools.shp",
+        "Schools.shx"
+    ],
+    "structures": [
+        "Structures.CPG",
+        "Structures.dbf",
+        "Structures.prj",
+        "Structures.sbn",
+        "Structures.sbx",
+        "Structures.shp",
+        "Structures.shp.xml",
+        "Structures.shx",
+        "Structures_fixed.dbf",
+        "Structures_fixed.prj",
+        "Structures_fixed.shp",
+        "Structures_fixed.shx"
+    ],
+    "SVI": [
+        "SVI.cpg",
+        "SVI.dbf",
+        "SVI.prj",
+        "SVI.shp",
+        "SVI.shx"
+    ],
+    "zoning": [
+        "zoning.cpg",
+        "zoning.dbf",
+        "zoning.prj",
+        "zoning.sbn",
+        "zoning.sbx",
+        "zoning.shp",
+        "zoning.shp.xml",
+        "zoning.shx"
+    ]
+}
